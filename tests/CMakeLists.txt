@@ -20,6 +20,7 @@ set(TEST_EXECUTABLE test_${CORE_LIB})
 # The executable name is derived from CORE_LIB for consistency
 add_executable(${TEST_EXECUTABLE}
     test_tank_model.cpp
+    test_pid_controller.cpp
 )
 
 # Link test executable against required libraries
