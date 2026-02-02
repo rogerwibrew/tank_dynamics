@@ -9,9 +9,14 @@ class TankModelTest : public ::testing::Test {
 protected:
     // Standard test parameters from the plan
     // Using C++17 positional initialization (area, k_v, max_height)
+    //
+    // These parameters are chosen such that at h = 2.5 m with valve position
+    // x = 0.5, the outlet flow equals 1.0 m³/s (steady state with inlet = 1.0):
+    //   q_out = k_v * x * sqrt(h) = 1.2649 * 0.5 * sqrt(2.5) ≈ 1.0 m³/s
+    // This allows tests to verify material balance (dh/dt ≈ 0) at steady state.
     TankModel::Parameters params{
         120.0,      // area: cross-sectional area (m²)
-        1.2649,     // k_v: valve coefficient (m^2.5/s)
+        1.2649,     // k_v: valve coefficient (m^2.5/s), chosen for steady-state testing
         5.0         // max_height: maximum tank height (m)
     };
     

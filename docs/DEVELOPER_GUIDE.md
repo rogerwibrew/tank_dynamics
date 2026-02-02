@@ -533,6 +533,102 @@ Current dependencies:
 - **GSL**: ODE solver (external, must be installed)
 - **GoogleTest**: Unit testing (FetchContent)
 
+## Error Handling Policy
+
+This project uses a consistent error handling strategy across all C++ components.
+
+### Constructor Validation (Throw Exceptions)
+
+**Rule:** Constructor parameters are validated immediately. Invalid parameters throw exceptions.
+
+**Why:** Constructors should fail fast and clearly. An object in an invalid state is worse than no object at all.
+
+**Example:**
+```cpp
+TankModel::TankModel(const Parameters& params) {
+    if (params.area <= 0.0) {
+        throw std::invalid_argument("Tank area must be positive");
+    }
+    if (params.k_v <= 0.0) {
+        throw std::invalid_argument("Valve coefficient must be positive");
+    }
+    // ...
+}
+```
+
+### Runtime Preconditions (Debug Assertions, Critical Paths Checked)
+
+**Rule:** Method preconditions are checked with assertions in debug builds. Critical paths may also check at runtime.
+
+**Why:**
+- Assertions help catch programming errors during development
+- Critical paths (e.g., state dimension validation) check even in release builds
+- Assertions disappear in release builds (`NDEBUG` flag)
+
+**Example:**
+```cpp
+Eigen::VectorXd TankModel::derivatives(
+    const Eigen::VectorXd& state,
+    const Eigen::VectorXd& inputs) const {
+    
+    // Debug-only assertions (disappear in release)
+    assert(state.size() == 1 && "State vector must have size 1");
+    assert(inputs.size() == 2 && "Input vector must have size 2");
+    
+    // Critical runtime check (always present)
+    if (state.size() != 1) {
+        throw std::runtime_error("State vector size must be 1");
+    }
+    // ...
+}
+```
+
+### External Library Errors (Check and Throw)
+
+**Rule:** Errors from external libraries (GSL, Eigen) are checked and converted to meaningful exceptions.
+
+**Why:** Callers should understand what went wrong in terms of our domain, not GSL's internals.
+
+**Example:**
+```cpp
+Stepper::Stepper(size_t state_dimension) : state_dimension_(state_dimension) {
+    stepper_ = gsl_odeiv2_step_alloc(gsl_odeiv2_step_rk4, state_dimension);
+    if (stepper_ == nullptr) {
+        throw std::runtime_error("Failed to allocate GSL stepper");
+    }
+}
+```
+
+### Documentation
+
+Use Doxygen `@throws` tags to document exceptions:
+
+```cpp
+/**
+ * @brief Compute the derivative of tank level.
+ * 
+ * @param state Current state vector [h]
+ * @param inputs Input vector [q_in, x]
+ * @return Derivative vector [dh/dt]
+ * 
+ * @throws std::runtime_error if state or input size is invalid
+ */
+Eigen::VectorXd derivatives(
+    const Eigen::VectorXd& state,
+    const Eigen::VectorXd& inputs) const;
+```
+
+### Summary Table
+
+| Scenario | Approach | Example |
+|----------|----------|---------|
+| Invalid constructor parameter | Throw exception | `throw std::invalid_argument(...)` |
+| Invalid method precondition | Assert (debug) + check critical | `assert(...); if (...) throw;` |
+| External library error | Check result, throw with context | `if (gsl_result != GSL_SUCCESS) throw;` |
+| Resource allocation failure | Throw exception | `if (ptr == nullptr) throw;` |
+
+---
+
 ## Performance Considerations
 
 ### Profiling

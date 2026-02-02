@@ -51,6 +51,14 @@ public:
      * 
      * @pre state(0) >= 0 (tank level must be non-negative)
      * @pre inputs(1) in [0, 1] (valve position must be in valid range)
+     * 
+     * @note This model is **time-invariant**: the dynamics depend only on the
+     *       current state and inputs, not on absolute time. The time parameter
+     *       passed by the Stepper during integration is not used. This is
+     *       appropriate for physical systems without explicitly time-dependent
+     *       terms (e.g., no scheduled valve changes, no time-dependent flows).
+     *       If time-dependent behavior is needed in the future, add a time
+     *       parameter here and update the model equations accordingly.
      */
     Eigen::VectorXd derivatives(
         const Eigen::VectorXd& state,

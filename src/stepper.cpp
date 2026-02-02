@@ -6,13 +6,22 @@ namespace tank_sim {
 /**
  * @brief Constructor to initialize the Stepper object.
  *
- * Allocates the GSL stepper using the RK4 algorithm and initializes the state
- * dimension.
+ * Allocates the GSL stepper using the RK4 algorithm and validates dimensions.
  *
- * @param state_dimension The size of the state vector for the differential
- * equations.
+ * @param state_dimension The size of the state vector for the differential equations
+ * @param input_dimension The size of the input vector for the differential equations
+ * @throws std::invalid_argument if either dimension is zero
  */
-Stepper::Stepper(size_t state_dimension) : state_dimension_(state_dimension) {
+Stepper::Stepper(size_t state_dimension, size_t input_dimension) 
+    : state_dimension_(state_dimension), input_dimension_(input_dimension) {
+  // Validate dimensions
+  if (state_dimension == 0) {
+    throw std::invalid_argument("State dimension must be greater than zero");
+  }
+  if (input_dimension == 0) {
+    throw std::invalid_argument("Input dimension must be greater than zero");
+  }
+  
   // Allocate the GSL stepper using the RK4 algorithm
   stepper_ = gsl_odeiv2_step_alloc(gsl_odeiv2_step_rk4, state_dimension);
   if (stepper_ == nullptr) {
@@ -108,6 +117,10 @@ Eigen::VectorXd Stepper::step(double t, double dt, const Eigen::VectorXd &state,
   if (state.size() != static_cast<int>(state_dimension_)) {
     throw std::runtime_error(
         "State vector size does not match stepper dimension");
+  }
+  if (input.size() != static_cast<int>(input_dimension_)) {
+    throw std::runtime_error(
+        "Input vector size does not match stepper dimension");
   }
 
   // Step 2: Create context structure for the GSL callback

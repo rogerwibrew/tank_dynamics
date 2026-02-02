@@ -1,6 +1,6 @@
 #include "tank_model.h"
 #include <cmath>
-#include <cassert>
+#include <stdexcept>
 
 namespace tank_sim {
 
@@ -8,10 +8,16 @@ TankModel::TankModel(const Parameters& params)
     : area_(params.area),
       k_v_(params.k_v),
       max_height_(params.max_height) {
-    // Validate parameters
-    assert(area_ > 0.0 && "Tank area must be positive");
-    assert(k_v_ > 0.0 && "Valve coefficient must be positive");
-    assert(max_height_ > 0.0 && "Maximum height must be positive");
+    // Validate parameters immediately - fail fast
+    if (area_ <= 0.0) {
+        throw std::invalid_argument("Tank area must be positive");
+    }
+    if (k_v_ <= 0.0) {
+        throw std::invalid_argument("Valve coefficient must be positive");
+    }
+    if (max_height_ <= 0.0) {
+        throw std::invalid_argument("Maximum tank height must be positive");
+    }
 }
 
 Eigen::VectorXd TankModel::derivatives(

@@ -42,7 +42,7 @@ int main() {
   std::cout << "Test 1: dt = 0.1\n";
   std::cout << "-----------------------------------------\n";
   
-  Stepper stepper1(1);
+  Stepper stepper1(1, 1);  // state_dim=1, input_dim=1
   Eigen::VectorXd state1(1);
   state1(0) = y0;
   
@@ -68,7 +68,7 @@ int main() {
   std::cout << "Test 2: dt = 0.05\n";
   std::cout << "-----------------------------------------\n";
   
-  Stepper stepper2(1);
+  Stepper stepper2(1, 1);  // state_dim=1, input_dim=1
   Eigen::VectorXd state2(1);
   state2(0) = y0;
   

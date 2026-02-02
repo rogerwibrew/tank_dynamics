@@ -1,12 +1,27 @@
 #include "pid_controller.h"
 #include <algorithm>
+#include <stdexcept>
 
 namespace tank_sim {
 
 PIDController::PIDController(const Gains& gains, double bias, double min_output,
                              double max_output, double max_integral)
     : gains(gains), bias(bias), min_output(min_output), max_output(max_output),
-      max_integral(max_integral), integral_state(0.0) {}
+      max_integral(max_integral), integral_state(0.0) {
+    // Validate parameters - fail fast
+    if (gains.tau_I < 0.0) {
+        throw std::invalid_argument("Integral time constant (tau_I) cannot be negative");
+    }
+    if (gains.tau_D < 0.0) {
+        throw std::invalid_argument("Derivative time constant (tau_D) cannot be negative");
+    }
+    if (min_output > max_output) {
+        throw std::invalid_argument("min_output must be <= max_output");
+    }
+    if (max_integral < 0.0) {
+        throw std::invalid_argument("max_integral must be non-negative");
+    }
+}
 
 double PIDController::compute(double error, double error_dot, double dt) {
     // Step 1: Calculate proportional term
@@ -27,11 +42,13 @@ double PIDController::compute(double error, double error_dot, double dt) {
     // Step 5: Clamp to physical limits
     double output = std::clamp(output_unsat, min_output, max_output);
 
-    // Step 6: Update integral for NEXT timestep (anti-windup)
-    // Only if output was NOT saturated
-    if (output_unsat == output) {
+    // Step 6: Anti-windup: Update integral for NEXT timestep only if NOT saturated
+    // Check if output was saturated (output differs from unsaturated value)
+    bool saturated = (output_unsat < min_output || output_unsat > max_output);
+    if (!saturated) {
+        // Only accumulate integral when we're in the linear operating range
         integral_state = integral_state + error * dt;
-        // Also clamp integral state directly (belt and braces)
+        // Also clamp integral state directly (secondary safety limit)
         integral_state = std::clamp(integral_state, -max_integral, max_integral);
     }
 
