@@ -283,3 +283,47 @@ TEST_F(StepperTest, ZeroStepSize) {
     EXPECT_EQ(result(0), initial_state_value) << "State should remain unchanged when dt=0.0";
 }
 
+// Test: Negative Step Size
+TEST_F(StepperTest, NegativeStepSize) {
+    // ODE: dy/dt = -k*y with k = 1.0
+    // Analytical solution: y(t) = y0 * exp(-k*t)
+    // For backward integration (negative dt), we go from t=1.0 toward t=0.0
+    // So y should increase (become larger than initial value)
+    const double k = 1.0;
+    const double dt = -0.1;  // Negative step size for backward integration
+    const int num_steps = 10;  // 10 steps backward
+    const double tolerance = 0.0001;
+
+    // Start at t=1.0 with state corresponding to y(1.0) = 1.0 * exp(-1.0)
+    Eigen::VectorXd state(1);
+    state(0) = 1.0 * std::exp(-k * 1.0);  // ≈ 0.3679
+
+    // Create stepper with state dimension 1 and input dimension 1
+    Stepper stepper(1, 1);
+
+    // Input vector (unused but required)
+    Eigen::VectorXd input(1);
+    input(0) = 0.0;
+
+    // Define the derivative function: dy/dt = -k*y
+    auto derivative = [&](double t, const Eigen::VectorXd& y, const Eigen::VectorXd& u) -> Eigen::VectorXd {
+        Eigen::VectorXd dy(1);
+        dy(0) = -k * y(0);
+        return dy;
+    };
+
+    // Integrate backward from t=1.0 to t=0.0 using negative dt
+    double current_time = 1.0;
+    for (int i = 0; i < num_steps; ++i) {
+        state = stepper.step(current_time, dt, state, input, derivative);
+        current_time += dt;  // current_time decreases since dt is negative
+    }
+
+    // After integrating backward 10 steps of 0.1, we should be at t=0.0
+    // The state should have evolved backward to y(0.0) = 1.0 * exp(0) = 1.0
+    double expected = 1.0 * std::exp(-k * 0.0);  // = 1.0
+
+    EXPECT_NEAR(state(0), expected, tolerance) << "Backward integration should increase state value";
+    EXPECT_GT(state(0), 0.3679) << "State should be larger than starting value after backward integration";
+}
+
