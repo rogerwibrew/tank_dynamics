@@ -252,3 +252,34 @@ TEST_F(StepperTest, VectorDimensionValidation) {
     ) << "Valid state and input vectors should not throw";
 }
 
+// Test: Zero Step Size
+TEST_F(StepperTest, ZeroStepSize) {
+    // Create a Stepper with state dimension 1 and input dimension 1
+    // (input_dimension must be >= 1 due to Stepper implementation)
+    Stepper stepper(1, 1);
+
+    // Initial state
+    Eigen::VectorXd state(1);
+    state(0) = 2.5;
+
+    // Input vector
+    Eigen::VectorXd input(1);
+    input(0) = 1.0;
+
+    // Define a derivative function that would change the state
+    auto derivative = [](double t, const Eigen::VectorXd& y, const Eigen::VectorXd& u) -> Eigen::VectorXd {
+        Eigen::VectorXd dy(1);
+        dy(0) = u(0) - y(0);  // dy/dt = u - y
+        return dy;
+    };
+
+    // Store the initial state value
+    double initial_state_value = state(0);
+
+    // Call step with dt = 0.0 (zero time advancement)
+    Eigen::VectorXd result = stepper.step(0.0, 0.0, state, input, derivative);
+
+    // State should remain unchanged since no time advancement occurred
+    EXPECT_EQ(result(0), initial_state_value) << "State should remain unchanged when dt=0.0";
+}
+
