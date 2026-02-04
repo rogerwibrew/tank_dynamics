@@ -88,8 +88,29 @@ void Simulator::step() {
   // - Derivative function
   state = stepper.step(time, dt, state, inputs, derivative_func);
 
-  // Advance simulation time
+  // Step 2: Advance simulation time
   time += dt;
+
+  // Step 3: Update all controllers for NEXT step
+  // For each controller, read measured value, calculate error, and compute output
+  for (size_t i = 0; i < controllers.size(); ++i) {
+    // Read the measured variable from current state using measured_index
+    int measured_index = controllerConfig[i].measuredIndex;
+    double measured_value = state(measured_index);
+
+    // Calculate error as setpoint minus measured value
+    double error = setpoints[i] - measured_value;
+
+    // Calculate error derivative (using zero for now - can be refined later)
+    double error_dot = 0.0;
+
+    // Call controller's compute method with error, error_dot, and dt
+    double output = controllers[i].compute(error, error_dot, dt);
+
+    // Write the controller output to the inputs vector at output_index
+    int output_index = controllerConfig[i].outputIndex;
+    inputs(output_index) = output;
+  }
 }
 
 double Simulator::getTime() {
