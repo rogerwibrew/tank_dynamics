@@ -247,6 +247,77 @@ Guidelines:
 
 ## Code Organization
 
+### Constants and Configuration
+
+All numerical constants and configuration values are centralized in `src/constants.h`. This provides a single source of truth for system parameters and makes the codebase more maintainable.
+
+**Constants are organized into logical groups:**
+
+1. **System Architecture** - Fixed dimensions (state size, input size)
+2. **Physical Parameters** - Tank properties, valve coefficients, limits
+3. **Integration Parameters** - RK4 step size bounds, accuracy thresholds
+4. **Control System** - PID gain defaults, output limits
+5. **Numerical Tolerances** - Testing and validation tolerances
+6. **Test-Specific Parameters** - Values used in unit tests
+7. **Physics Constants** - Derived values like 2π
+
+**Using constants in your code:**
+
+```cpp
+#include "constants.h"
+
+using namespace tank_sim::constants;
+
+// Use constants instead of magic numbers
+if (dt < MIN_DT || dt > MAX_DT) {
+    throw std::invalid_argument("Invalid time step");
+}
+
+// Access constants with full namespace qualification if needed
+double area = tank_sim::constants::DEFAULT_TANK_AREA;
+```
+
+**Guidelines:**
+
+- Never use magic numbers in implementation code
+- Add new constants to `constants.h` (don't hardcode in source files)
+- Update constant comments if the value or meaning changes
+- Use `constexpr` for all constants (compile-time evaluation)
+- Constants use `UPPER_SNAKE_CASE` with descriptive names
+- Each constant includes detailed Doxygen documentation
+
+**Example from tests:**
+
+```cpp
+// Before: Magic numbers scattered everywhere
+TEST(TankModelTest, SteadyState) {
+    TankModel model({120.0, 1.2649, 5.0});
+    Eigen::VectorXd state(1);
+    state << 2.5;
+    Eigen::VectorXd inputs(2);
+    inputs << 1.0, 0.5;
+    EXPECT_NEAR(model.derivatives(state, inputs)(0), 0.0, 0.001);
+}
+
+// After: Clear intent with named constants
+TEST(TankModelTest, SteadyState) {
+    TankModel model({
+        DEFAULT_TANK_AREA,
+        DEFAULT_VALVE_COEFFICIENT,
+        TANK_MAX_HEIGHT
+    });
+    Eigen::VectorXd state(1);
+    state << TANK_NOMINAL_HEIGHT;
+    Eigen::VectorXd inputs(2);
+    inputs << TEST_INLET_FLOW, TEST_VALVE_POSITION;
+    EXPECT_NEAR(
+        model.derivatives(state, inputs)(0),
+        0.0,
+        TANK_STATE_TOLERANCE
+    );
+}
+```
+
 ### Namespace and Naming
 
 All simulation code lives in the `tank_sim` namespace:
@@ -256,6 +327,12 @@ namespace tank_sim {
     class TankModel { /* ... */ };
     class PIDController { /* ... */ };
     class Stepper { /* ... */ };
+}
+
+// Constants live in tank_sim::constants
+namespace tank_sim::constants {
+    constexpr double DEFAULT_TANK_AREA = 120.0;
+    // ...
 }
 ```
 
@@ -670,5 +747,5 @@ For questions about architecture or design decisions, see `docs/plan.md`.
 
 ---
 
-**Last Updated:** 2026-02-02  
-**For:** Phase 1 - C++ Simulation Core
+**Last Updated:** 2026-02-04  
+**For:** Phase 1 - C++ Simulation Core with Constants Management

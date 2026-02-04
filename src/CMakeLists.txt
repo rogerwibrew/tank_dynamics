@@ -12,6 +12,7 @@ target_sources(${CORE_LIB} PRIVATE
     tank_model.cpp
     pid_controller.cpp
     stepper.cpp
+    simulator.cpp
 )
 
 # Note: Header files (tank_model.h) are not listed here because:

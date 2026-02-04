@@ -2,8 +2,10 @@
 #include <cmath>
 #include <Eigen/Dense>
 #include "../src/stepper.h"
+#include "../src/constants.h"
 
 using namespace tank_sim;
+using namespace tank_sim::constants;
 
 // Test fixture for Stepper integration tests
 class StepperTest : public ::testing::Test {
@@ -28,10 +30,10 @@ TEST_F(StepperTest, ExponentialDecayAccuracy) {
     // Analytical solution: y(t) = y0 * exp(-k*t)
     const double k = 1.0;
     const double y0 = 1.0;
-    const double dt = 0.1;
-    const int num_steps = 10;
+    const double dt = TEST_RK4_DT_COARSE;
+    const int num_steps = TEST_NUM_STEPS;
     const double final_time = 1.0;
-    const double tolerance = 0.0001;
+    const double tolerance = INTEGRATION_TOLERANCE;
 
     // Create a Stepper with state dimension 1 and input dimension 1 (minimum)
     Stepper stepper(1, 1);
@@ -80,8 +82,8 @@ TEST_F(StepperTest, FourthOrderAccuracyVerification) {
     double expected = y0 * std::exp(-k * final_time);
 
     // First integration: dt = 0.1 (10 steps)
-    const double dt_coarse = 0.1;
-    const int steps_coarse = 10;
+    const double dt_coarse = TEST_RK4_DT_COARSE;
+    const int steps_coarse = TEST_NUM_STEPS;
     Stepper stepper_coarse(1, 1);
     Eigen::VectorXd state_coarse(1);
     state_coarse(0) = y0;
@@ -94,8 +96,8 @@ TEST_F(StepperTest, FourthOrderAccuracyVerification) {
     double error_coarse = std::abs(state_coarse(0) - expected);
 
     // Second integration: dt = 0.05 (20 steps)
-    const double dt_fine = 0.05;
-    const int steps_fine = 20;
+    const double dt_fine = TEST_RK4_DT_FINE;
+    const int steps_fine = TEST_NUM_STEPS_FINE;
     Stepper stepper_fine(1, 1);
     Eigen::VectorXd state_fine(1);
     state_fine(0) = y0;
@@ -111,9 +113,9 @@ TEST_F(StepperTest, FourthOrderAccuracyVerification) {
     // Expected ratio: (0.1/0.05)^4 = 2^4 = 16
     double error_ratio = error_coarse / error_fine;
 
-    // Assert ratio is between 12 and 20 (allowing numerical noise)
-    EXPECT_GT(error_ratio, 12.0) << "Error ratio " << error_ratio << " is below expected range for fourth-order method";
-    EXPECT_LT(error_ratio, 20.0) << "Error ratio " << error_ratio << " is above expected range for fourth-order method";
+    // Assert ratio is between RK4_MIN_ERROR_RATIO and RK4_MAX_ERROR_RATIO (allowing numerical noise)
+    EXPECT_GT(error_ratio, RK4_MIN_ERROR_RATIO) << "Error ratio " << error_ratio << " is below expected range for fourth-order method";
+    EXPECT_LT(error_ratio, RK4_MAX_ERROR_RATIO) << "Error ratio " << error_ratio << " is above expected range for fourth-order method";
 }
 
 // Test: Oscillatory System (Harmonic Oscillator)
@@ -123,7 +125,7 @@ TEST_F(StepperTest, OscillatorySystemHarmonicOscillator) {
     //   dy0/dt = y1 (velocity)
     //   dy1/dt = -omega^2 * y0 (acceleration)
     // where y0 is position and y1 is velocity
-    const double omega = 2.0 * M_PI;  // frequency = 1 Hz, period = 1 second
+    const double omega = TWO_PI;  // frequency = 1 Hz, period = 1 second
     const double dt = 0.01;
     const int num_steps = 100;
 
@@ -156,8 +158,8 @@ TEST_F(StepperTest, OscillatorySystemHarmonicOscillator) {
     // Analytical solution: y0(t) = cos(omega * t), y1(t) = -omega * sin(omega * t)
     // At t = 1.0: y0(1.0) ≈ cos(2π) = 1.0, y1(1.0) ≈ -omega * sin(2π) = 0.0
     
-    EXPECT_NEAR(state(0), 1.0, 0.001) << "Position should return to initial value after one period";
-    EXPECT_NEAR(state(1), 0.0, 0.01) << "Velocity should return to initial value after one period";
+    EXPECT_NEAR(state(0), 1.0, OSCILLATOR_POSITION_TOLERANCE) << "Position should return to initial value after one period";
+    EXPECT_NEAR(state(1), 0.0, OSCILLATOR_VELOCITY_TOLERANCE) << "Velocity should return to initial value after one period";
 }
 
 // Test: System with Inputs
@@ -166,11 +168,11 @@ TEST_F(StepperTest, SystemWithInputs) {
     // This represents a first-order lag driven by input u
     // Analytical solution: y(t) = (u/k) * (1 - exp(-k*t))
     const double k = 1.0;
-    const double u = 1.0;
-    const double dt = 0.1;
-    const int num_steps = 10;
+    const double u = TEST_INLET_FLOW;
+    const double dt = TEST_RK4_DT_COARSE;
+    const int num_steps = TEST_NUM_STEPS;
     const double final_time = 1.0;
-    const double tolerance = 0.0001;
+    const double tolerance = INTEGRATION_TOLERANCE;
 
     // Initial state
     Eigen::VectorXd state(1);

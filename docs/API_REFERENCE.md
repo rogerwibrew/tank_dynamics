@@ -4,12 +4,152 @@ Complete API documentation for the Tank Dynamics Simulator C++ library.
 
 ## Table of Contents
 
-1. [TankModel Class](#tankmodel-class)
-2. [PIDController Class](#pidcontroller-class)
-3. [Stepper Class](#stepper-class)
-4. [Simulator Class (Planned)](#simulator-class-planned)
-5. [Type Definitions](#type-definitions)
-6. [Example Usage](#example-usage)
+1. [Constants and Configuration](#constants-and-configuration)
+2. [TankModel Class](#tankmodel-class)
+3. [PIDController Class](#pidcontroller-class)
+4. [Stepper Class](#stepper-class)
+5. [Simulator Class (Planned)](#simulator-class-planned)
+6. [Type Definitions](#type-definitions)
+7. [Example Usage](#example-usage)
+
+## Constants and Configuration
+
+All numerical constants and configuration values are centralized in `src/constants.h`. Using constants instead of magic numbers improves maintainability and makes the code self-documenting.
+
+### Include
+
+```cpp
+#include "constants.h"
+using namespace tank_sim::constants;
+```
+
+### System Architecture Constants
+
+**State and Input Dimensions:**
+
+```cpp
+constexpr int TANK_STATE_SIZE = 1;           // Single state: tank level [h]
+constexpr int TANK_INPUT_SIZE = 2;           // Two inputs: [q_in, x]
+constexpr int INPUT_INDEX_INLET_FLOW = 0;    // Index for inlet flow in input vector
+constexpr int INPUT_INDEX_VALVE_POSITION = 1; // Index for valve position in input vector
+```
+
+### Physical Parameters
+
+**Tank and Valve Properties:**
+
+```cpp
+constexpr double DEFAULT_TANK_AREA = 120.0;              // m²
+constexpr double DEFAULT_VALVE_COEFFICIENT = 1.2649;     // m^2.5/s
+constexpr double TANK_MAX_HEIGHT = 5.0;                  // m
+constexpr double TANK_NOMINAL_HEIGHT = 2.5;              // m (nominal operating point)
+constexpr double GRAVITY = 9.81;                         // m/s² (gravitational acceleration)
+```
+
+**Typical steady-state at nominal conditions:**
+```
+With q_in = 1.0 m³/s, x = 0.5, h = 2.5 m:
+q_out = 1.2649 * 0.5 * √2.5 ≈ 1.0 m³/s (balanced)
+dh/dt ≈ 0.0 (steady state)
+```
+
+### Integration Parameters
+
+**RK4 Time Step Bounds:**
+
+```cpp
+constexpr double MIN_DT = 0.001;               // Minimum time step (seconds)
+constexpr double MAX_DT = 10.0;                // Maximum time step (seconds)
+constexpr double DEFAULT_DT = 0.1;             // Recommended step size (seconds)
+```
+
+**RK4 Convergence Validation:**
+
+```cpp
+constexpr double RK4_MIN_ERROR_RATIO = 12.0;  // Fourth-order accuracy lower bound
+constexpr double RK4_MAX_ERROR_RATIO = 20.0;  // Fourth-order accuracy upper bound
+```
+
+When verifying RK4 convergence, the error ratio between coarse and fine integration should be:
+```
+error_ratio = error_coarse / error_fine ≈ (dt_coarse / dt_fine)^4 ∈ [12, 20]
+```
+
+### Control System Defaults
+
+**PID Gains and Limits:**
+
+```cpp
+constexpr double DEFAULT_PID_PROPORTIONAL_GAIN = 1.0;   // Kc
+constexpr double DEFAULT_PID_INTEGRAL_TIME = 10.0;      // tau_I (seconds)
+constexpr double DEFAULT_PID_DERIVATIVE_TIME = 5.0;     // tau_D (seconds)
+constexpr double DEFAULT_PID_BIAS = 0.5;                // Nominal operating point
+constexpr double DEFAULT_PID_MIN_OUTPUT = 0.0;          // Saturation lower bound
+constexpr double DEFAULT_PID_MAX_OUTPUT = 1.0;          // Saturation upper bound
+constexpr double DEFAULT_PID_MAX_INTEGRAL = 10.0;       // Anti-windup limit
+constexpr double DEFAULT_PID_DT = 1.0;                  // Default control update interval
+```
+
+**Typical Tuning:**
+- Level control: Kc=1.0, tau_I=10s, tau_D=2-5s
+- Fast response: Lower tau_I, higher Kc
+- Smooth response: Higher tau_I, lower Kc
+
+### Numerical Tolerances
+
+**Testing and Validation Tolerances:**
+
+```cpp
+constexpr double DERIVATIVE_TOLERANCE = 0.001;              // For derivative checks
+constexpr double INTEGRATION_TOLERANCE = 0.0001;            // For integration accuracy
+constexpr double OSCILLATOR_POSITION_TOLERANCE = 0.001;     // For harmonic oscillator position
+constexpr double OSCILLATOR_VELOCITY_TOLERANCE = 0.01;      // For harmonic oscillator velocity
+constexpr double TANK_STATE_TOLERANCE = 0.001;              // For tank level validation (m)
+constexpr double CONTROL_OUTPUT_TOLERANCE = 0.001;          // For control signal validation
+```
+
+**Usage in Tests:**
+```cpp
+EXPECT_NEAR(computed_value, expected_value, TANK_STATE_TOLERANCE);
+EXPECT_NEAR(output, expected_output, CONTROL_OUTPUT_TOLERANCE);
+```
+
+### Test-Specific Parameters
+
+**Standard Test Values:**
+
+```cpp
+constexpr double TEST_ERROR_VALUE = 0.1;                // Standard error for PID tests (m)
+constexpr double TEST_DT = 1.0;                         // Standard time step (seconds)
+constexpr double TEST_INLET_FLOW = 1.0;                 // Standard inlet flow (m³/s)
+constexpr double TEST_VALVE_POSITION = 0.5;             // Standard valve position [0,1]
+constexpr double TEST_OSCILLATOR_FREQUENCY = 1.0;       // Harmonic test frequency (Hz)
+constexpr double TEST_RK4_DT_COARSE = 0.1;             // Coarse step for convergence test (seconds)
+constexpr double TEST_RK4_DT_FINE = 0.05;              // Fine step for convergence test (seconds)
+constexpr int TEST_NUM_STEPS = 10;                      // Standard step count for tests
+constexpr int TEST_NUM_STEPS_FINE = 20;                // Fine step count (2x NUM_STEPS)
+```
+
+**Why These Values:**
+- `TEST_ERROR_VALUE = 0.1 m` provides realistic tank level errors (~4% of 2.5m nominal)
+- `TEST_INLET_FLOW = 1.0 m³/s` matches steady-state inlet at nominal conditions
+- `TEST_VALVE_POSITION = 0.5` represents 50% valve opening
+- RK4 step ratio of 2:1 (0.1 vs 0.05) verifies fourth-order accuracy
+
+### Physics Constants
+
+**Derived Constants:**
+
+```cpp
+constexpr double TWO_PI = 6.283185307179586;  // 2π for angular frequency calculations
+```
+
+Used in oscillatory system tests:
+```cpp
+double omega = TWO_PI * TEST_OSCILLATOR_FREQUENCY;  // rad/s
+```
+
+---
 
 ## TankModel Class
 
@@ -636,10 +776,12 @@ int main() {
 
 ---
 
-**Last Updated:** 2026-02-02  
-**Version:** 1.0 (Phase 1 - C++ Core)
+**Last Updated:** 2026-02-04  
+**Version:** 1.1 (Phase 1 - C++ Core with Constants)
 
 For more information:
 - Complete architecture: `docs/plan.md`
 - Process theory: `docs/TankDynamics.md`
 - Next tasks: `docs/next.md`
+- Constants reference: `src/constants.h`
+- Developer guide: `docs/DEVELOPER_GUIDE.md`
