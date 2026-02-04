@@ -11,6 +11,12 @@
 add_executable(stepper_verify stepper_verify.cpp)
 target_link_libraries(stepper_verify PRIVATE ${CORE_LIB})
 
+# Simulator verification program
+# Tests Simulator instantiation and basic operation
+# Verifies: construction, step() execution, and state retrieval
+add_executable(simulator_verify simulator_verify.cpp)
+target_link_libraries(simulator_verify PRIVATE ${CORE_LIB})
+
 # ============================================================================
 # PYTHON BINDINGS (Phase 2)
 # ============================================================================
