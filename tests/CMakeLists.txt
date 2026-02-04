@@ -17,6 +17,7 @@ add_executable(${TEST_EXECUTABLE}
     test_tank_model.cpp
     test_pid_controller.cpp
     test_stepper.cpp
+    test_simulator.cpp
 )
 
 # Link test executable against required libraries
