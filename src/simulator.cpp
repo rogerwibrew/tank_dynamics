@@ -71,54 +71,115 @@ Simulator::Simulator(const Config &config)
 }
 
 void Simulator::step() {
-  // step implementation
+  // Step 1: Integrate the model forward
+  // Create a lambda that wraps TankModel's derivatives method to match
+  // Stepper's DerivativeFunc signature: (double t, VectorXd state, VectorXd input) -> VectorXd
+  auto derivative_func = [this](double t, const Eigen::VectorXd& state,
+                                const Eigen::VectorXd& input) -> Eigen::VectorXd {
+    return model.derivatives(state, input);
+  };
+
+  // Call Stepper's step method to integrate one time step
+  // Uses RK4 integration with:
+  // - Current time
+  // - Time step dt
+  // - Current state vector
+  // - Current input vector (from PREVIOUS timestep)
+  // - Derivative function
+  state = stepper.step(time, dt, state, inputs, derivative_func);
+
+  // Advance simulation time
+  time += dt;
 }
 
 double Simulator::getTime() {
-  // getTime implementation
-  return 0.0;
+  return time;
 }
 
 Eigen::VectorXd Simulator::getState() {
-  // getState implementation
-  return Eigen::VectorXd();
+  return state;
 }
 
 Eigen::VectorXd Simulator::getInputs() {
-  // getInputs implementation
-  return Eigen::VectorXd();
+  return inputs;
 }
 
 double Simulator::getSetpoint(int index) {
-  // getSetpoint implementation
-  return 0.0;
+  if (index < 0 || static_cast<size_t>(index) >= setpoints.size()) {
+    throw std::out_of_range("Setpoint index " + std::to_string(index) +
+                            " out of bounds for " + std::to_string(setpoints.size()) +
+                            " controller(s)");
+  }
+  return setpoints[index];
 }
 
 double Simulator::getControllerOutput(int index) {
-  // getControllerOutput implementation
-  return 0.0;
+  if (index < 0 || static_cast<size_t>(index) >= controllers.size()) {
+    throw std::out_of_range("Controller index " + std::to_string(index) +
+                            " out of bounds for " + std::to_string(controllers.size()) +
+                            " controller(s)");
+  }
+  // Get the controller's output from the inputs vector
+  int output_index = controllerConfig[index].outputIndex;
+  return inputs(output_index);
 }
 
 double Simulator::getError(int index) {
-  // getError implementation
-  return 0.0;
+  if (index < 0 || static_cast<size_t>(index) >= controllers.size()) {
+    throw std::out_of_range("Controller index " + std::to_string(index) +
+                            " out of bounds for " + std::to_string(controllers.size()) +
+                            " controller(s)");
+  }
+  // Calculate error: setpoint - measured_value
+  int measured_index = controllerConfig[index].measuredIndex;
+  double measured_value = state(measured_index);
+  double setpoint = setpoints[index];
+  return setpoint - measured_value;
 }
 
 void Simulator::setInput(int index, double value) {
-  // setInput implementation
+  if (index < 0 || static_cast<size_t>(index) >= inputs.size()) {
+    throw std::out_of_range("Input index " + std::to_string(index) +
+                            " out of bounds for input vector of size " +
+                            std::to_string(inputs.size()));
+  }
+  inputs(index) = value;
 }
 
 void Simulator::setSetpoint(int index, double value) {
-  // setSetpoint implementation
+  if (index < 0 || static_cast<size_t>(index) >= setpoints.size()) {
+    throw std::out_of_range("Setpoint index " + std::to_string(index) +
+                            " out of bounds for " + std::to_string(setpoints.size()) +
+                            " controller(s)");
+  }
+  setpoints[index] = value;
 }
 
 void Simulator::setControllerGains(
     int index, const tank_sim::PIDController::Gains &gains) {
-  // setControllerGains implementation
+  if (index < 0 || static_cast<size_t>(index) >= controllers.size()) {
+    throw std::out_of_range("Controller index " + std::to_string(index) +
+                            " out of bounds for " + std::to_string(controllers.size()) +
+                            " controller(s)");
+  }
+  controllers[index].setGains(gains);
 }
 
 void Simulator::reset() {
-  // reset implementation
+  // Reset simulation to initial conditions
+  time = 0.0;
+  state = initialState;
+  inputs = initialInputs;
+  
+  // Reset all controller integral states
+  for (auto& controller : controllers) {
+    controller.reset();
+  }
+  
+  // Reset setpoints to initial values
+  for (size_t i = 0; i < controllers.size(); ++i) {
+    setpoints[i] = controllerConfig[i].initialSetpoint;
+  }
 }
 
 } // namespace tank_sim
