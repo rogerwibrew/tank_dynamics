@@ -214,4 +214,8 @@ void Simulator::reset() {
   std::fill(previousErrors.begin(), previousErrors.end(), 0.0);
 }
 
+int Simulator::getControllerCount() const {
+  return static_cast<int>(controllers.size());
+}
+
 } // namespace tank_sim

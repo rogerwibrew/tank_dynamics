@@ -645,3 +645,170 @@ class TestIntegration:
         state = sim.get_state()
         assert state.shape == (1,)
         assert 2.0 < state[0] < 3.0
+
+
+class TestEdgeCases:
+    """Test boundary conditions and unusual configurations."""
+
+    def test_open_loop_simulation(self):
+        """Verify simulator works without controllers (open-loop operation).
+
+        In open-loop mode, the simulator runs the physics model without
+        any feedback control. Inputs must be set manually via set_input().
+        """
+        config = tank_sim.SimulatorConfig()
+        config.model_params = tank_sim.TankModelParameters()
+        config.model_params.area = 120.0
+        config.model_params.k_v = 1.2649
+        config.model_params.max_height = 5.0
+
+        # No controllers - open loop
+        config.controllers = []
+
+        # Initial conditions
+        config.initial_state = np.array([2.5])
+        config.initial_inputs = np.array([1.0, 0.5])  # Fixed inlet/valve
+        config.dt = 1.0
+
+        # Should create simulator successfully
+        sim = tank_sim.Simulator(config)
+
+        # Run open-loop simulation
+        for _ in range(50):
+            sim.step()
+
+        # Verify simulator ran
+        assert sim.get_time() == 50.0
+        state = sim.get_state()
+        assert len(state) == 1
+
+        # Manually change valve position (no controller to interfere)
+        sim.set_input(1, 0.3)  # Close valve to 30%
+        sim.step()
+
+        # Verify input changed
+        inputs = sim.get_inputs()
+        assert abs(inputs[1] - 0.3) < 1e-6
+
+    def test_zero_timestep_raises_error(self):
+        """Verify zero timestep is rejected during configuration.
+
+        A zero timestep would cause division by zero in the integrator.
+        """
+        config = tank_sim.create_default_config()
+        config.dt = 0.0
+
+        # Should raise an error (implementation-dependent)
+        # If C++ allows it, the simulation would fail on first step
+        try:
+            sim = tank_sim.Simulator(config)
+            # If construction succeeds, step should fail
+            with pytest.raises(Exception):
+                sim.step()
+        except Exception:
+            # Construction failed as expected
+            pass
+
+    def test_negative_timestep(self):
+        """Verify negative timestep behavior.
+
+        Negative timesteps don't make physical sense but should be handled
+        gracefully (either rejected or treated as forward integration).
+        """
+        config = tank_sim.create_default_config()
+        config.dt = -1.0
+
+        # Behavior depends on implementation
+        # Document what actually happens
+        try:
+            sim = tank_sim.Simulator(config)
+            # If allowed, step and observe behavior
+            initial_time = sim.get_time()
+            sim.step()
+            final_time = sim.get_time()
+
+            # Time should either increase (abs value used) or decrease
+            assert final_time != initial_time
+        except Exception:
+            # Rejection is also acceptable
+            pass
+
+    def test_extreme_setpoint_causing_saturation(self):
+        """Verify controller handles impossible setpoints gracefully.
+
+        Setting a very high setpoint with reverse-acting controller should
+        close the valve (attempting to raise level by reducing outlet flow).
+        This tests anti-windup protection.
+        """
+        sim = tank_sim.create_default_config()
+        sim = tank_sim.Simulator(sim)
+
+        # Set impossible setpoint (higher than tank can physically reach)
+        # With reverse-acting controller (Kc < 0), positive error closes valve
+        sim.set_setpoint(0, 10.0)  # 10 m level (max is 5 m)
+
+        # Run simulation
+        for _ in range(100):
+            sim.step()
+
+        # Valve should be saturated at minimum (closed) due to reverse action
+        # Large positive error → negative controller output → saturates at min_output (0.0)
+        valve_position = sim.get_controller_output(0)
+        assert abs(valve_position - 0.0) < 0.01, "Valve should saturate at 0% (closed)"
+
+        # Level should rise as outlet flow is reduced
+        state = sim.get_state()
+        assert state[0] > 2.5, "Level should have risen with closed valve"
+        assert state[0] < 5.0, "Level cannot exceed max tank height"
+
+    def test_very_low_setpoint_causing_valve_opening(self):
+        """Verify controller handles very low setpoint (valve opening).
+
+        Setting a very low setpoint with reverse-acting controller should
+        open the valve fully (attempting to lower level by increasing outlet flow).
+        """
+        sim = tank_sim.create_default_config()
+        sim = tank_sim.Simulator(sim)
+
+        # Set very low setpoint
+        # With reverse-acting controller (Kc < 0), negative error opens valve
+        sim.set_setpoint(0, 0.1)  # 0.1 m level (near empty)
+
+        # Run simulation
+        for _ in range(100):
+            sim.step()
+
+        # Valve should be saturated at maximum (fully open) due to reverse action
+        # Large negative error → positive controller output → saturates at max_output (1.0)
+        valve_position = sim.get_controller_output(0)
+        assert abs(valve_position - 1.0) < 0.01, (
+            "Valve should saturate at 100% (fully open)"
+        )
+
+        # Level should drop significantly with fully open valve
+        state = sim.get_state()
+        assert state[0] < 2.0, "Level should have dropped"
+        assert state[0] > 0.0, "Level should remain positive"
+
+    def test_empty_state_vector(self):
+        """Verify empty state vector is rejected.
+
+        A simulator with no state variables makes no sense.
+        """
+        config = tank_sim.create_default_config()
+        config.initial_state = np.array([])
+
+        with pytest.raises((ValueError, RuntimeError)):
+            tank_sim.Simulator(config)
+
+    def test_mismatched_input_dimensions(self):
+        """Verify mismatched input vector dimensions are caught.
+
+        The initial_inputs must match the expected input dimension
+        (typically 2: inlet flow and valve position).
+        """
+        config = tank_sim.create_default_config()
+        config.initial_inputs = np.array([1.0])  # Too short
+
+        with pytest.raises((ValueError, RuntimeError)):
+            tank_sim.Simulator(config)

@@ -42,6 +42,7 @@ public:
   double getSetpoint(int index) const;
   double getControllerOutput(int index) const;
   double getError(int index) const;
+  int getControllerCount() const;
 
   // Operator control methods
   void setInput(int index, double value);

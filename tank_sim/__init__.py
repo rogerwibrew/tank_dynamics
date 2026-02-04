@@ -88,8 +88,17 @@ def create_default_config():
     config.controllers = [controller]
 
     # Initial conditions at steady state
-    config.initial_state = np.array([2.5])  # 2.5 m level
-    config.initial_inputs = np.array([1.0, 0.5])  # 1.0 m³/s inlet, 0.5 valve
+    # CRITICAL: These values satisfy the steady-state constraint where q_out = q_in
+    # Outlet flow equation: q_out = k_v * valve_position * sqrt(level)
+    # Verification: 1.0 = 1.2649 * 0.5 * sqrt(2.5) = 1.0 ✓
+    # If modifying these parameters, ensure this equality still holds to maintain
+    # steady state, otherwise the simulation will start with immediate transients.
+    level = 2.5  # meters
+    q_in = 1.0  # m³/s
+    valve_position = 0.5  # 50% open
+
+    config.initial_state = np.array([level])
+    config.initial_inputs = np.array([q_in, valve_position])
 
     # Simulation timestep
     config.dt = 1.0  # 1 second per step

@@ -346,7 +346,17 @@ PYBIND11_MODULE(_tank_sim, m) {
                 Use set_input() to modify individual inputs.
         )pbdoc")
 
-        .def("get_setpoint", &tank_sim::Simulator::getSetpoint,
+        .def("get_setpoint", 
+             [](const tank_sim::Simulator& self, int index) {
+                 if (index < 0 || index >= self.getControllerCount()) {
+                     throw py::index_error(
+                         "Controller index " + std::to_string(index) + 
+                         " out of range (have " + std::to_string(self.getControllerCount()) + 
+                         " controller" + (self.getControllerCount() == 1 ? "" : "s") + ")"
+                     );
+                 }
+                 return self.getSetpoint(index);
+             },
              py::arg("index"), R"pbdoc(
             Get the setpoint for a specific controller.
 
@@ -364,7 +374,17 @@ PYBIND11_MODULE(_tank_sim, m) {
                 >>> setpoint = sim.get_setpoint(0)  # First controller
         )pbdoc")
 
-        .def("get_controller_output", &tank_sim::Simulator::getControllerOutput,
+        .def("get_controller_output",
+             [](const tank_sim::Simulator& self, int index) {
+                 if (index < 0 || index >= self.getControllerCount()) {
+                     throw py::index_error(
+                         "Controller index " + std::to_string(index) + 
+                         " out of range (have " + std::to_string(self.getControllerCount()) + 
+                         " controller" + (self.getControllerCount() == 1 ? "" : "s") + ")"
+                     );
+                 }
+                 return self.getControllerOutput(index);
+             },
              py::arg("index"), R"pbdoc(
             Get the control output from a specific controller.
 
@@ -384,7 +404,17 @@ PYBIND11_MODULE(_tank_sim, m) {
                 >>> output = sim.get_controller_output(0)  # Valve position
         )pbdoc")
 
-        .def("get_error", &tank_sim::Simulator::getError,
+        .def("get_error",
+             [](const tank_sim::Simulator& self, int index) {
+                 if (index < 0 || index >= self.getControllerCount()) {
+                     throw py::index_error(
+                         "Controller index " + std::to_string(index) + 
+                         " out of range (have " + std::to_string(self.getControllerCount()) + 
+                         " controller" + (self.getControllerCount() == 1 ? "" : "s") + ")"
+                     );
+                 }
+                 return self.getError(index);
+             },
              py::arg("index"), R"pbdoc(
             Get the current control error for a specific controller.
 
@@ -422,7 +452,17 @@ PYBIND11_MODULE(_tank_sim, m) {
                 >>> sim.set_input(0, 1.2)  # Change inlet flow to 1.2 m³/s
         )pbdoc")
 
-        .def("set_setpoint", &tank_sim::Simulator::setSetpoint,
+        .def("set_setpoint",
+             [](tank_sim::Simulator& self, int index, double value) {
+                 if (index < 0 || index >= self.getControllerCount()) {
+                     throw py::index_error(
+                         "Controller index " + std::to_string(index) + 
+                         " out of range (have " + std::to_string(self.getControllerCount()) + 
+                         " controller" + (self.getControllerCount() == 1 ? "" : "s") + ")"
+                     );
+                 }
+                 self.setSetpoint(index, value);
+             },
              py::arg("index"), py::arg("value"), R"pbdoc(
             Change the setpoint for a specific controller.
 
@@ -440,7 +480,17 @@ PYBIND11_MODULE(_tank_sim, m) {
                 >>> sim.set_setpoint(0, 3.5)  # New level target: 3.5 meters
         )pbdoc")
 
-        .def("set_controller_gains", &tank_sim::Simulator::setControllerGains,
+        .def("set_controller_gains",
+             [](tank_sim::Simulator& self, int index, const tank_sim::PIDController::Gains& gains) {
+                 if (index < 0 || index >= self.getControllerCount()) {
+                     throw py::index_error(
+                         "Controller index " + std::to_string(index) + 
+                         " out of range (have " + std::to_string(self.getControllerCount()) + 
+                         " controller" + (self.getControllerCount() == 1 ? "" : "s") + ")"
+                     );
+                 }
+                 self.setControllerGains(index, gains);
+             },
              py::arg("index"), py::arg("gains"), R"pbdoc(
             Dynamically retune a controller's PID gains.
 
