@@ -4,23 +4,23 @@ import tank_sim
 
 
 class SimulationManager:
-    _instance = None
+    _instance: "SimulationManager | None" = None
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, config: tank_sim.SimulatorConfig):
         if cls._instance is None:
             cls._instance = super(SimulationManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, config):
-        self.config = config
-        self.initialized = False
-        self.simulator = None
-        self.setpoint = None
-        self.PID = None
-        self.inlet_flow = None
+    def __init__(self, config: tank_sim.SimulatorConfig):
+        self.config: tank_sim.SimulatorConfig = config
+        self.initialized: bool = False
+        self.simulator: tank_sim.Simulator | None = None
+        self.setpoint: float | None = None
+        self.PID: tank_sim.PIDGains | None = None
+        self.inlet_flow: float | None = None
 
     def initialize(self):
-        self.simulator = tank_sim.Simulator(**self.config)
+        self.simulator = tank_sim.Simulator(self.config)
         self.initialized = True
 
     def get_state(self):
@@ -36,7 +36,8 @@ class SimulationManager:
         pass
 
     def reset(self):
-        self.simulator.reset()
+        if self.simulator is not None:
+            self.simulator.reset()
 
 
 # Example usage in main.py would be:

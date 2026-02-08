@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from typing import cast
+
+from pydantic import BaseModel, Field, ValidationError, ValidationInfo, field_validator
 
 
 class SimulationState(BaseModel):
@@ -77,15 +79,15 @@ class InletModeCommand(BaseModel):
 
     @field_validator("mode")
     @classmethod
-    def validate_mode(cls, v):
+    def validate_mode(cls, v: str) -> str:
         if v not in ["constant", "brownian"]:
             raise ValueError("Mode must be either 'constant' or 'brownian'")
         return v
 
     @field_validator("max_flow")
     @classmethod
-    def validate_min_max_flow(cls, v, values):
-        min_flow = values.get("min_flow", 0.8)
+    def validate_min_max_flow(cls, v: float, info: ValidationInfo) -> float:
+        min_flow = cast(float, info.data.get("min_flow", 0.8))
         if v <= min_flow:
             raise ValueError("max_flow must be greater than min_flow")
         return v
