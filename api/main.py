@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 from contextlib import asynccontextmanager
 
@@ -27,6 +29,9 @@ logger = logging.getLogger(__name__)
 # Global simulation manager instance
 simulation_manager: SimulationManager | None = None
 
+# Track the background simulation loop task
+simulation_task: asyncio.Task | None = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,12 +39,17 @@ async def lifespan(app: FastAPI):
     Manages application startup and shutdown.
     """
     # Startup
-    global simulation_manager
+    global simulation_manager, simulation_task
     try:
         config = tank_sim.create_default_config()
         simulation_manager = SimulationManager(config)
         simulation_manager.initialize()
         logger.info("Application started successfully")
+
+        # Start the simulation loop as a background task
+        simulation_task = asyncio.create_task(simulation_manager.simulation_loop())
+        logger.info("Simulation loop started")
+
     except Exception as e:
         logger.error(f"Failed to initialize simulation manager: {e}")
         raise
@@ -47,6 +57,14 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    if simulation_task is not None:
+        simulation_task.cancel()
+        try:
+            await simulation_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Simulation loop stopped")
+
     logger.info("Application shutting down")
 
 
@@ -104,6 +122,8 @@ async def get_config():
                 "tau_D": gains.tau_D,
             },
             "timestep": config.dt,
+            "history_capacity": 7200,
+            "history_size": len(simulation_manager.history),
         }
     except Exception as e:
         logger.error(f"Error getting config: {e}")
@@ -219,7 +239,6 @@ async def get_history(duration: int = Query(3600, ge=1, le=7200)):
                 status_code=500, content={"error": "Simulation not initialized"}
             )
 
-        # For now, return empty list (will implement ring buffer in next task)
         history = simulation_manager.get_history(duration)
         return history
     except Exception as e:
@@ -230,20 +249,125 @@ async def get_history(duration: int = Query(3600, ge=1, le=7200)):
 # WebSocket endpoint
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for real-time state broadcasting."""
+    """
+    WebSocket endpoint for real-time state broadcasting and command handling.
+
+    Sends:
+    - State updates: {"type": "state", "data": {...}}
+    - Error messages: {"type": "error", "message": "..."}
+
+    Receives:
+    - {"type": "setpoint", "value": <float>}
+    - {"type": "pid", "Kc": <float>, "tau_I": <float>, "tau_D": <float>}
+    - {"type": "inlet_flow", "value": <float>}
+    - {"type": "inlet_mode", "mode": <str>, "min_flow": <float>, "max_flow": <float>}
+    """
     await websocket.accept()
     logger.info("Client connected to WebSocket")
 
     try:
+        if simulation_manager is None or not simulation_manager.initialized:
+            await websocket.send_json(
+                {"type": "error", "message": "Simulation not initialized"}
+            )
+            await websocket.close()
+            return
+
         simulation_manager.add_connection(websocket)
 
         while True:
-            # Receive messages from client
-            data = await websocket.receive_text()
-            logger.debug(f"Received message: {data}")
+            # Receive JSON messages from client
+            try:
+                data = await websocket.receive_text()
+                message = json.loads(data)
+            except json.JSONDecodeError:
+                await websocket.send_json(
+                    {"type": "error", "message": "Invalid JSON format"}
+                )
+                continue
+            except Exception as e:
+                logger.error(f"Error receiving message: {e}")
+                break
 
-            # Echo back the message (for testing)
-            await websocket.send_text(f"Echo: {data}")
+            # Route message based on type
+            try:
+                msg_type = message.get("type")
+
+                if msg_type == "setpoint":
+                    value = message.get("value")
+                    if value is None:
+                        await websocket.send_json(
+                            {"type": "error", "message": "Missing 'value' field"}
+                        )
+                    else:
+                        simulation_manager.set_setpoint(float(value))
+                        logger.info(f"Setpoint command: {value}")
+
+                elif msg_type == "pid":
+                    kc = message.get("Kc")
+                    tau_i = message.get("tau_I")
+                    tau_d = message.get("tau_D")
+                    if any(x is None for x in [kc, tau_i, tau_d]):
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "message": "Missing PID gain fields (Kc, tau_I, tau_D)",
+                            }
+                        )
+                    else:
+                        gains = tank_sim.PIDGains(
+                            Kc=float(kc), tau_I=float(tau_i), tau_D=float(tau_d)
+                        )
+                        simulation_manager.set_pid_gains(gains)
+                        logger.info(
+                            f"PID command: Kc={kc}, tau_I={tau_i}, tau_D={tau_d}"
+                        )
+
+                elif msg_type == "inlet_flow":
+                    value = message.get("value")
+                    if value is None:
+                        await websocket.send_json(
+                            {"type": "error", "message": "Missing 'value' field"}
+                        )
+                    else:
+                        simulation_manager.set_inlet_flow(float(value))
+                        logger.info(f"Inlet flow command: {value}")
+
+                elif msg_type == "inlet_mode":
+                    mode = message.get("mode")
+                    min_flow = message.get("min")
+                    max_flow = message.get("max")
+                    if any(x is None for x in [mode, min_flow, max_flow]):
+                        await websocket.send_json(
+                            {
+                                "type": "error",
+                                "message": "Missing inlet mode fields (mode, min, max)",
+                            }
+                        )
+                    else:
+                        simulation_manager.set_inlet_mode(
+                            str(mode), float(min_flow), float(max_flow)
+                        )
+                        logger.info(f"Inlet mode command: {mode}")
+
+                else:
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "message": f"Unknown message type: {msg_type}",
+                        }
+                    )
+
+            except (ValueError, TypeError) as e:
+                logger.error(f"Error parsing message values: {e}")
+                await websocket.send_json(
+                    {"type": "error", "message": f"Invalid message format: {e}"}
+                )
+            except Exception as e:
+                logger.error(f"Error processing message: {e}")
+                await websocket.send_json(
+                    {"type": "error", "message": f"Error processing command: {e}"}
+                )
 
     except WebSocketDisconnect:
         logger.info("Client disconnected from WebSocket")

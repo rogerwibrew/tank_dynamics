@@ -1,4 +1,6 @@
+import asyncio
 import logging
+from collections import deque
 from typing import Any
 
 import tank_sim
@@ -24,6 +26,7 @@ class SimulationManager:
         self.initialized: bool = False
         self.simulator: tank_sim.Simulator | None = None
         self.connections: set = set()
+        self.history: deque = deque(maxlen=7200)  # 2 hours at 1 Hz
 
     def initialize(self):
         """Initialize the simulator with the configuration."""
@@ -167,10 +170,25 @@ class SimulationManager:
         except Exception as e:
             logger.error(f"Error setting inlet mode: {e}")
 
-    def get_history(self, duration: int) -> list[dict[str, Any]]:
-        """Get historical data points."""
-        # For now, return empty list (will implement ring buffer in next task)
-        return []
+    def get_history(self, duration: int = 3600) -> list[dict[str, Any]]:
+        """
+        Get historical data points.
+
+        Args:
+            duration: Number of seconds of history to return (1-7200, default 3600)
+
+        Returns:
+            List of state snapshots in chronological order (oldest first)
+        """
+        if duration < 1 or duration > 7200:
+            logger.warning(f"Invalid duration {duration}, clamping to valid range")
+            duration = max(1, min(duration, 7200))
+
+        num_entries = min(duration, len(self.history))
+        if num_entries == 0:
+            return []
+
+        return list(self.history)[-num_entries:]
 
     def add_connection(self, websocket):
         """Add a WebSocket connection."""
@@ -199,3 +217,43 @@ class SimulationManager:
         # Remove failed connections
         for connection in disconnected:
             self.remove_connection(connection)
+
+    async def simulation_loop(self):
+        """
+        Main simulation loop running at 1 Hz.
+
+        Continuously:
+        - Steps the simulation
+        - Gets current state
+        - Broadcasts state to all connected WebSocket clients
+        - Stores state in history buffer
+        """
+        logger.info("Simulation loop started")
+        try:
+            while True:
+                await asyncio.sleep(1.0)
+
+                try:
+                    # Advance simulation by one step
+                    self.step()
+
+                    # Get current state
+                    state = self.get_state()
+
+                    # Store in history buffer
+                    self.history.append(state)
+
+                    # Broadcast to all connected clients
+                    message = {"type": "state", "data": state}
+                    await self.broadcast(message)
+
+                except Exception as e:
+                    logger.error(f"Error in simulation loop iteration: {e}")
+                    # Continue loop without crashing
+
+        except asyncio.CancelledError:
+            logger.info("Simulation loop cancelled")
+            raise
+        except Exception as e:
+            logger.error(f"Fatal error in simulation loop: {e}")
+            raise
