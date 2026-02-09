@@ -154,18 +154,25 @@ class SimulationManager:
         except Exception as e:
             logger.error(f"Error setting inlet flow: {e}")
 
-    def set_inlet_mode(self, mode: str, min_flow: float, max_flow: float):
+    def set_inlet_mode(
+        self, mode: str, min_flow: float, max_flow: float, variance: float = 0.05
+    ):
         """Set inlet flow mode (constant or brownian)."""
         if self.simulator is None or not self.initialized:
             logger.warning("set_inlet_mode called but simulator not initialized")
             return
 
         try:
-            # Store mode parameters for future Brownian implementation
+            # Store mode parameters for Brownian implementation
             self.inlet_mode = mode
-            self.inlet_min_flow = min_flow
-            self.inlet_max_flow = max_flow
-            logger.info(f"Inlet mode set to {mode}")
+            self.inlet_mode_params = {
+                "min": min_flow,
+                "max": max_flow,
+                "variance": variance,
+            }
+            logger.info(
+                f"Inlet mode set to {mode} (min={min_flow}, max={max_flow}, variance={variance})"
+            )
         except Exception as e:
             logger.error(f"Error setting inlet mode: {e}")
 
