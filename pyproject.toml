@@ -32,6 +32,7 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "pytest-asyncio>=0.21",
+    "pytest-random-order>=1.1",
     "httpx>=0.24",
     "pybind11>=2.11",
 ]
@@ -48,6 +49,6 @@ cmake.build-type = "Release"
 wheel.packages = ["tank_sim"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests/python"]
+testpaths = ["tests/python", "api/tests"]
 python_files = ["test_*.py"]
 addopts = "-v"

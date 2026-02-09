@@ -96,6 +96,22 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.get("/api/state", response_model=SimulationState)
+async def get_state():
+    """Get current simulation state snapshot."""
+    try:
+        if simulation_manager is None or not simulation_manager.initialized:
+            return JSONResponse(
+                status_code=500, content={"error": "Simulation not initialized"}
+            )
+
+        state = simulation_manager.get_state()
+        return state
+    except Exception as e:
+        logger.error(f"Error getting state: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.get("/api/config", response_model=ConfigResponse)
 async def get_config():
     """Get current simulation configuration."""
