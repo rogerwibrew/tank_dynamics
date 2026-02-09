@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tank Dynamics WebSocket Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ccc;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+            transition: background 0.3s;
+        }
+
+        .status-indicator.connected {
+            background: #4caf50;
+        }
+
+        .status-text {
+            color: #666;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        .state-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        .state-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .state-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .state-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .state-value.error {
+            color: #f44336;
+        }
+
+        .state-value.warning {
+            color: #ff9800;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        input[type="number"],
+        input[type="text"],
+        select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        input[type="number"]:focus,
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            padding: 10px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .button-group button {
+            flex: 1;
+        }
+
+        .pid-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .pid-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #444;
+            line-height: 1.5;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .log-entry.info {
+            color: #4caf50;
+        }
+
+        .log-entry.error {
+            color: #f44336;
+        }
+
+        .log-entry.warning {
+            color: #ff9800;
+        }
+
+        .log-entry.command {
+            color: #2196f3;
+        }
+
+        .mode-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .mode-controls button {
+            flex: 1;
+        }
+
+        .mode-controls button.active {
+            background: #4caf50;
+        }
+
+        .inlet-mode-details {
+            display: none;
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .inlet-mode-details.show {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #eee;
+            font-size: 13px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .stat-label {
+            color: #888;
+        }
+
+        .stat-value {
+            color: #333;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .error-box {
+            background: #ffebee;
+            color: #c62828;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #c62828;
+            font-size: 13px;
+            display: none;
+        }
+
+        .error-box.show {
+            display: block;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 20px 0;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #1565c0;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .success-message {
+            color: #4caf50;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏊 Tank Dynamics Simulator</h1>
+        <p class="subtitle">Real-time WebSocket Client - Interactive Control Panel</p>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-indicator" id="statusIndicator"></div>
+            <span class="status-text" id="statusText">Disconnected</span>
+            <button id="connectBtn" onclick="toggleConnection()" style="padding: 6px 12px; font-size: 12px;">
+                Connect
+            </button>
+        </div>
+
+        <!-- Error Display -->
+        <div class="error-box" id="errorBox"></div>
+
+        <div class="content">
+            <!-- Left Column: Monitoring -->
+            <div class="section">
+                <h2 class="section-title">📊 Process State</h2>
+
+                <div class="state-grid">
+                    <div class="state-item">
+                        <span class="state-label">Tank Level</span>
+                        <span class="state-value" id="levelValue">0.00 m</span>
+                    </div>
+                    <div class="state-item">
+                        <span class="state-label">Setpoint</span>
+                        <span class="state-value" id="setpointValue">0.00 m</span>
+                    </div>
+                    <div class="state-item">
+                        <span class="state-label">Error</span>
+                        <span class="state-value error" id="errorValue">0.00 m</span>
+                    </div>
+                    <div class="state-item">
+                        <span class="state-label">Valve Position</span>
+                        <span class="state-value" id="valveValue">0.00</span>
+                    </div>
+                    <div class="state-item">
+                        <span class="state-label">Inlet Flow</span>
+                        <span class="state-value" id="inletValue">0.00 m³/s</span>
+                    </div>
+                    <div class="state-item">
+                        <span class="state-label">Outlet Flow</span>
+                        <span class="state-value" id="outletValue">0.00 m³/s</span>
+                    </div>
+                </div>
+
+                <div class="stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Updates Received:</span>
+                        <span class="stat-value" id="updateCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Simulation Time:</span>
+                        <span class="stat-value" id="simTime">0.0 s</span>
+                    </div>
+                </div>
+
+                <hr>
+
+                <h2 class="section-title">📝 Activity Log</h2>
+                <div class="log" id="logBox"></div>
+            </div>
+
+            <!-- Right Column: Controls -->
+            <div class="section">
+                <h2 class="section-title">🎮 Control Panel</h2>
+
+                <!-- Setpoint Control -->
+                <div class="input-group">
+                    <label for="setpointInput">Setpoint (0.0 - 5.0 m):</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="number" id="setpointInput" min="0" max="5" step="0.1" value="2.5" style="flex: 1;">
+                        <button onclick="sendSetpoint()">Set</button>
+                    </div>
+                    <div class="success-message" id="setpointSuccess">✓ Setpoint updated</div>
+                </div>
+
+                <!-- PID Tuning -->
+                <div>
+                    <label>PID Gains:</label>
+                    <div class="pid-grid">
+                        <div class="input-group">
+                            <label for="kcInput" style="font-size: 12px;">Kc (Prop):</label>
+                            <input type="number" id="kcInput" step="0.1" value="1.0">
+                        </div>
+                        <div class="input-group">
+                            <label for="tauIInput" style="font-size: 12px;">tau_I (Int):</label>
+                            <input type="number" id="tauIInput" min="0" step="0.5" value="10.0">
+                        </div>
+                        <div class="input-group">
+                            <label for="tauDInput" style="font-size: 12px;">tau_D (Der):</label>
+                            <input type="number" id="tauDInput" min="0" step="0.5" value="5.0">
+                        </div>
+                    </div>
+                    <button onclick="sendPIDGains()" style="width: 100%; margin-top: 8px;">Update PID Gains</button>
+                    <div class="success-message" id="pidSuccess">✓ PID gains updated</div>
+                </div>
+
+                <hr>
+
+                <!-- Inlet Flow Control -->
+                <div class="input-group">
+                    <label for="inletFlowInput">Inlet Flow (0.0 - 2.0 m³/s):</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="number" id="inletFlowInput" min="0" max="2" step="0.1" value="1.0" style="flex: 1;">
+                        <button onclick="sendInletFlow()">Set</button>
+                    </div>
+                    <div class="success-message" id="flowSuccess">✓ Inlet flow updated</div>
+                </div>
+
+                <!-- Inlet Mode Control -->
+                <div class="input-group">
+                    <label>Inlet Mode:</label>
+                    <div class="mode-controls">
+                        <button id="constantBtn" class="active" onclick="setInletMode('constant')">
+                            Constant
+                        </button>
+                        <button id="brownianBtn" onclick="setInletMode('brownian')">
+                            Brownian
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Brownian Parameters (hidden by default) -->
+                <div class="inlet-mode-details" id="brownianDetails">
+                    <div class="input-group">
+                        <label for="minFlowInput" style="font-size: 12px;">Min Flow:</label>
+                        <input type="number" id="minFlowInput" min="0" max="2" step="0.1" value="0.8">
+                    </div>
+                    <div class="input-group">
+                        <label for="maxFlowInput" style="font-size: 12px;">Max Flow:</label>
+                        <input type="number" id="maxFlowInput" min="0" max="2" step="0.1" value="1.2">
+                    </div>
+                    <div class="input-group">
+                        <label for="varianceInput" style="font-size: 12px;">Variance:</label>
+                        <input type="number" id="varianceInput" min="0" max="1" step="0.01" value="0.05">
+                    </div>
+                    <button onclick="appliedBrownianParams()" style="grid-column: span 2;">Apply Parameters</button>
+                </div>
+                <div class="success-message" id="modeSuccess">✓ Inlet mode updated</div>
+
+                <hr>
+
+                <!-- Reset Button -->
+                <button onclick="resetSimulation()" style="width: 100%; background: #ff9800;">
+                    🔄 Reset Simulation
+                </button>
+
+                <hr>
+
+                <div class="info-box">
+                    <strong>Connection Info:</strong><br>
+                    API: ws://localhost:8000/ws<br>
+                    Status: <span id="connectionStatus">Disconnected</span><br>
+                    <br>
+                    <strong>Tip:</strong> Open this file directly in your browser. No server needed!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let updateCount = 0;
+        let currentMode = 'constant';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('Application started', 'info');
+            log('Click "Connect" to begin', 'info');
+        });
+
+        function log(message, type = 'info') {
+            const logBox = document.getElementById('logBox');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logBox.appendChild(entry);
+            logBox.scrollTop = logBox.scrollHeight;
+
+            // Keep log size manageable
+            while (logBox.children.length > 50) {
+                logBox.removeChild(logBox.firstChild);
+            }
+        }
+
+        function showError(message) {
+            const errorBox = document.getElementById('errorBox');
+            errorBox.textContent = '❌ ' + message;
+            errorBox.classList.add('show');
+            setTimeout(() => errorBox.classList.remove('show'), 5000);
+        }
+
+        function showSuccess(elementId) {
+            const element = document.getElementById(elementId);
+            element.classList.add('show');
+            setTimeout(() => element.classList.remove('show'), 2000);
+        }
+
+        function toggleConnection() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            } else {
+                connect();
+            }
+        }
+
+        function connect() {
+            const wsUrl = 'ws://localhost:8000/ws';
+
+            log(`Connecting to ${wsUrl}...`, 'info');
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = function() {
+                    log('✓ Connected to server', 'info');
+                    updateConnectionStatus(true);
+                    document.getElementById('connectBtn').textContent = 'Disconnect';
+                };
+
+                ws.onmessage = function(event) {
+                    try {
+                        const message = JSON.parse(event.data);
+
+                        if (message.type === 'state') {
+                            updateCount++;
+                            const data = message.data;
+
+                            // Update state display
+                            document.getElementById('levelValue').textContent = data.tank_level.toFixed(2) + ' m';
+                            document.getElementById('setpointValue').textContent = data.setpoint.toFixed(2) + ' m';
+                            document.getElementById('errorValue').textContent = data.error.toFixed(2) + ' m';
+                            document.getElementById('valveValue').textContent = data.valve_position.toFixed(2);
+                            document.getElementById('inletValue').textContent = data.inlet_flow.toFixed(2) + ' m³/s';
+                            document.getElementById('outletValue').textContent = data.outlet_flow.toFixed(2) + ' m³/s';
+                            document.getElementById('updateCount').textContent = updateCount;
+                            document.getElementById('simTime').textContent = data.time.toFixed(1) + ' s';
+
+                            // Color error value based on magnitude
+                            const errorElement = document.getElementById('errorValue');
+                            if (Math.abs(data.error) > 0.5) {
+                                errorElement.className = 'state-value error';
+                            } else if (Math.abs(data.error) > 0.2) {
+                                errorElement.className = 'state-value warning';
+                            } else {
+                                errorElement.className = 'state-value';
+                            }
+                        } else if (message.type === 'error') {
+                            log('Server error: ' + message.message, 'error');
+                        }
+                    } catch (e) {
+                        log('Failed to parse message: ' + e.message, 'error');
+                    }
+                };
+
+                ws.onerror = function(error) {
+                    log('WebSocket error: ' + error, 'error');
+                    showError('Connection error. Is the API server running?');
+                    updateConnectionStatus(false);
+                };
+
+                ws.onclose = function() {
+                    log('Disconnected from server', 'warning');
+                    updateConnectionStatus(false);
+                    document.getElementById('connectBtn').textContent = 'Connect';
+                };
+            } catch (e) {
+                log('Failed to create WebSocket: ' + e.message, 'error');
+                showError('Could not connect. Ensure API is running on localhost:8000');
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const connectionStatus = document.getElementById('connectionStatus');
+
+            if (connected) {
+                indicator.classList.add('connected');
+                statusText.textContent = 'Connected';
+                connectionStatus.textContent = 'Connected ✓';
+            } else {
+                indicator.classList.remove('connected');
+                statusText.textContent = 'Disconnected';
+                connectionStatus.textContent = 'Disconnected';
+            }
+        }
+
+        function sendCommand(command) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showError('Not connected to server');
+                return;
+            }
+
+            try {
+                ws.send(JSON.stringify(command));
+                log('Sent: ' + JSON.stringify(command), 'command');
+            } catch (e) {
+                log('Failed to send command: ' + e.message, 'error');
+            }
+        }
+
+        function sendSetpoint() {
+            const value = parseFloat(document.getElementById('setpointInput').value);
+            if (isNaN(value) || value < 0 || value > 5) {
+                showError('Setpoint must be between 0 and 5');
+                return;
+            }
+            sendCommand({ type: 'setpoint', value: value });
+            showSuccess('setpointSuccess');
+        }
+
+        function sendPIDGains() {
+            const Kc = parseFloat(document.getElementById('kcInput').value);
+            const tau_I = parseFloat(document.getElementById('tauIInput').value);
+            const tau_D = parseFloat(document.getElementById('tauDInput').value);
+
+            if (isNaN(Kc) || isNaN(tau_I) || isNaN(tau_D)) {
+                showError('Invalid PID gain values');
+                return;
+            }
+
+            sendCommand({
+                type: 'pid',
+                Kc: Kc,
+                tau_I: tau_I,
+                tau_D: tau_D
+            });
+            showSuccess('pidSuccess');
+        }
+
+        function sendInletFlow() {
+            const value = parseFloat(document.getElementById('inletFlowInput').value);
+            if (isNaN(value) || value < 0 || value > 2) {
+                showError('Inlet flow must be between 0 and 2');
+                return;
+            }
+            sendCommand({ type: 'inlet_flow', value: value });
+            showSuccess('flowSuccess');
+        }
+
+        function setInletMode(mode) {
+            currentMode = mode;
+
+            // Update button styles
+            document.getElementById('constantBtn').classList.toggle('active', mode === 'constant');
+            document.getElementById('brownianBtn').classList.toggle('active', mode === 'brownian');
+
+            // Show/hide Brownian parameters
+            document.getElementById('brownianDetails').classList.toggle('show', mode === 'brownian');
+
+            if (mode === 'constant') {
+                sendCommand({ type: 'inlet_mode', mode: 'constant' });
+                showSuccess('modeSuccess');
+            } else {
+                appliedBrownianParams();
+            }
+        }
+
+        function appliedBrownianParams() {
+            const min = parseFloat(document.getElementById('minFlowInput').value);
+            const max = parseFloat(document.getElementById('maxFlowInput').value);
+            const variance = parseFloat(document.getElementById('varianceInput').value);
+
+            if (isNaN(min) || isNaN(max) || isNaN(variance)) {
+                showError('Invalid Brownian parameters');
+                return;
+            }
+
+            if (min >= max) {
+                showError('Min flow must be less than max flow');
+                return;
+            }
+
+            sendCommand({
+                type: 'inlet_mode',
+                mode: 'brownian',
+                min: min,
+                max: max,
+                variance: variance
+            });
+            showSuccess('modeSuccess');
+        }
+
+        function resetSimulation() {
+            if (confirm('Reset simulation to initial conditions?')) {
+                fetch('http://localhost:8000/api/reset', { method: 'POST' })
+                    .then(resp => resp.json())
+                    .then(data => {
+                        log(data.message, 'info');
+                        updateCount = 0;
+                        document.getElementById('updateCount').textContent = '0';
+                    })
+                    .catch(e => {
+                        showError('Reset failed: ' + e.message);
+                        log('Reset error: ' + e.message, 'error');
+                    });
+            }
+        }
+    </script>
+</body>
+</html>

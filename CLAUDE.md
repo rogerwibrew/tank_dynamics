@@ -111,8 +111,61 @@ When escalating, output: `ESCALATE: [reason]`
 
 ## Technology Stack
 
-[REPLACE: List your technologies]
+### Core Technologies
+- **Language:** Python 3.10+ with C++ physics engine (pybind11 bindings)
+- **Build System:** CMake with scikit-build-core
+- **Backend:** FastAPI with WebSocket support
+- **Frontend:** Next.js (Phase 4)
+- **Testing:** pytest, pytest-cov, pytest-asyncio
+
+### Critical: Package Manager
+
+**This project uses `uv`, NOT `pip`.**
+
+Always use `uv` commands for package management:
+
+```bash
+# ✓ CORRECT
+uv add package-name
+uv sync --extra dev
+uv run pytest
+uv pip install -e .
+
+# ✗ WRONG - Do not use pip directly
+pip install package-name
+pip install -r requirements.txt
+```
+
+**Why uv:**
+- 10-100x faster than pip
+- Built-in lock file (uv.lock)
+- Automatic virtual environment management
+- Universal dependency resolution
+
+**See:** `docs/general_notes/uv-guide.md` for complete documentation.
+
+### Common uv Commands
+
+```bash
+# Setup
+uv venv                    # Create virtual environment
+uv sync --extra dev        # Install dependencies from lock file
+
+# Development
+uv pip install -e .        # Install project in editable mode
+uv run pytest              # Run tests
+uv run python script.py    # Run scripts
+
+# Dependencies
+uv add package             # Add new dependency
+uv remove package          # Remove dependency
+uv lock --upgrade          # Update all dependencies
+```
 
 ## Success Criteria
 
-[REPLACE: Define what "done" looks like]
+- All tests passing (C++, Python bindings, API tests)
+- Documentation complete and accurate
+- Code reviewed and feedback addressed
+- Changes committed with clear commit messages
+- No breaking changes without discussion

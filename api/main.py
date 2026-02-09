@@ -96,6 +96,22 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.get("/api/state", response_model=SimulationState)
+async def get_state():
+    """Get current simulation state snapshot."""
+    try:
+        if simulation_manager is None or not simulation_manager.initialized:
+            return JSONResponse(
+                status_code=500, content={"error": "Simulation not initialized"}
+            )
+
+        state = simulation_manager.get_state()
+        return state
+    except Exception as e:
+        logger.error(f"Error getting state: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.get("/api/config", response_model=ConfigResponse)
 async def get_config():
     """Get current simulation configuration."""
@@ -216,14 +232,15 @@ async def set_inlet_mode(command: InletModeCommand):
             )
 
         simulation_manager.set_inlet_mode(
-            command.mode, command.min_flow, command.max_flow
+            command.mode, command.min, command.max, command.variance
         )
         logger.info(f"Inlet mode changed to {command.mode}")
         return {
             "message": "Inlet mode updated",
             "mode": command.mode,
-            "min_flow": command.min_flow,
-            "max_flow": command.max_flow,
+            "min": command.min,
+            "max": command.max,
+            "variance": command.variance,
         }
     except Exception as e:
         logger.error(f"Error setting inlet mode: {e}")
@@ -260,7 +277,7 @@ async def websocket_endpoint(websocket: WebSocket):
     - {"type": "setpoint", "value": <float>}
     - {"type": "pid", "Kc": <float>, "tau_I": <float>, "tau_D": <float>}
     - {"type": "inlet_flow", "value": <float>}
-    - {"type": "inlet_mode", "mode": <str>, "min_flow": <float>, "max_flow": <float>}
+    - {"type": "inlet_mode", "mode": <str>, "min": <float>, "max": <float>, "variance": <float>}
     """
     await websocket.accept()
     logger.info("Client connected to WebSocket")
@@ -335,9 +352,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 elif msg_type == "inlet_mode":
                     mode = message.get("mode")
-                    min_flow = message.get("min")
-                    max_flow = message.get("max")
-                    if any(x is None for x in [mode, min_flow, max_flow]):
+                    min_val = message.get("min")
+                    max_val = message.get("max")
+                    variance = message.get("variance", 0.05)  # Default if not provided
+                    if any(x is None for x in [mode, min_val, max_val]):
                         await websocket.send_json(
                             {
                                 "type": "error",
@@ -346,7 +364,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         )
                     else:
                         simulation_manager.set_inlet_mode(
-                            str(mode), float(min_flow), float(max_flow)
+                            str(mode), float(min_val), float(max_val), float(variance)
                         )
                         logger.info(f"Inlet mode command: {mode}")
 

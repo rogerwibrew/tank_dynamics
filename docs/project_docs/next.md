@@ -1,1003 +1,717 @@
 # Next Tasks - Tank Dynamics Simulator
 
-## Current Phase: Phase 3 - FastAPI Backend
+## Current Phase: Phase 3 - FastAPI Backend (Completion Tasks)
 
-**Status:** Starting Phase 3 - Python bindings complete and tested
-
-**Progress:** 0% - Phase 3 just beginning
-
-**Phase 2 Completion:**
-- ✅ pybind11 module structure created
-- ✅ All C++ classes bound to Python
-- ✅ 28 Python tests passing (100% pass rate)
-- ✅ Modern Python packaging with scikit-build-core
-- ✅ Code review feedback implemented
-- ✅ Complete documentation and examples
-- ✅ Ready for FastAPI integration
+Phase 3 core implementation is complete (Tasks 13-15). The following tasks complete the backend by adding comprehensive testing, implementing the Brownian inlet mode enhancement, and finalizing documentation before proceeding to Phase 4 frontend development.
 
 ---
 
-## Task 13: Create FastAPI Project Structure
+## Task 16: Comprehensive API Testing Suite
 
-**Phase:** 3 - FastAPI Backend
-**Prerequisites:** Phase 2 complete (Python bindings working)
+**Phase:** 3 - FastAPI Backend  
+**Prerequisites:** Tasks 13-15 (all Phase 3 core implementation complete)
 
 ### Files to Create
 
-- Create `/home/roger/dev/tank_dynamics/api/__init__.py`
-- Create `/home/roger/dev/tank_dynamics/api/main.py` (FastAPI application entry point)
-- Create `/home/roger/dev/tank_dynamics/api/models.py` (Pydantic models for API)
-- Create `/home/roger/dev/tank_dynamics/api/simulation.py` (Simulation orchestration)
-- Create `/home/roger/dev/tank_dynamics/api/requirements.txt` (API dependencies)
-- Create `/home/roger/dev/tank_dynamics/api/.env.example` (Example environment configuration)
+- Create `api/tests/__init__.py` (empty file for test discovery)
+- Create `api/tests/test_endpoints.py` (REST endpoint tests)
+- Create `api/tests/test_websocket.py` (WebSocket protocol tests)
+- Create `api/tests/test_concurrent.py` (concurrent client tests)
+- Create `api/tests/conftest.py` (pytest fixtures and configuration)
 
 ### Requirements
 
-This task establishes the FastAPI project structure and basic application setup without implementing the simulation loop or WebSocket functionality yet. The goal is to create a working FastAPI application with proper project organization and configuration.
+The testing suite should provide comprehensive coverage of all API functionality, ensuring the backend behaves correctly under normal operation, edge cases, and error conditions.
 
-#### Directory Structure:
+#### Testing Architecture Principles:
 
-The api directory should be organized as follows:
-- main.py contains the FastAPI application instance, startup/shutdown events, and route imports
-- models.py contains Pydantic models for request/response validation and type safety
-- simulation.py will contain the simulation loop and state management (minimal stub for now)
-- requirements.txt lists all Python dependencies needed for the API server
-- __init__.py makes the directory a Python package
+**Test Isolation:** Each test should be independent and not rely on state from other tests. Use pytest fixtures to set up clean state before each test.
 
-#### api/models.py specifications:
+**Mock Strategy:** Tests should mock the tank_sim C++ module to avoid dependencies on the compiled binary. This allows tests to run in CI/CD environments without building C++, and allows testing specific simulation behaviors by controlling mock return values.
 
-This file defines Pydantic models representing the data structures used in the API. These provide automatic validation, serialization, and documentation.
+**Async Testing:** All FastAPI tests must be async and use appropriate test clients (httpx.AsyncClient for REST, WebSocket test client for WebSocket tests).
 
-Create the following Pydantic models:
+**Coverage Goals:** Aim for high coverage of API layer code, including normal paths, error paths, validation failures, and edge cases.
 
-A model representing the simulation state snapshot:
-- time: float (simulation time in seconds)
-- tank_level: float (current tank level in meters)
-- setpoint: float (level setpoint in meters)
-- inlet_flow: float (inlet flow rate in cubic meters per second)
-- outlet_flow: float (outlet flow rate in cubic meters per second)
-- valve_position: float (valve position from 0 to 1)
-- error: float (control error: setpoint minus level)
-- controller_output: float (PID controller output, 0 to 1)
+#### api/tests/conftest.py specifications:
 
-A model for setpoint change commands:
-- value: float (new setpoint in meters)
-- Validation: must be between 0.0 and 5.0 (maximum tank height)
+This file should provide shared pytest fixtures used across all test files.
 
-A model for PID tuning commands:
-- Kc: float (proportional gain, must be non-negative)
-- tau_I: float (integral time constant in seconds, 0 means no integral action)
-- tau_D: float (derivative time constant in seconds, 0 means no derivative action)
-- Validation: all values must be non-negative
+**Fixture: mock_tank_sim** - Mocks the tank_sim module before any imports occur. Returns a mock module with controllable behavior for TankSimulator class. Should use unittest.mock.MagicMock to create a fake tank_sim module. This fixture should have autouse=True and scope="session" to ensure it's applied before any API imports.
 
-A model for inlet flow commands:
-- value: float (new inlet flow in cubic meters per second)
-- Validation: must be between 0.0 and 2.0 (reasonable operating range)
+**Fixture: app** - Returns the FastAPI app instance with mocked tank_sim. This ensures each test gets a fresh app without real C++ dependencies.
 
-A model for inlet mode commands:
-- mode: string (either "constant" or "brownian")
-- min_flow: optional float (minimum flow for Brownian mode, default 0.8)
-- max_flow: optional float (maximum flow for Brownian mode, default 1.2)
-- Validation: mode must be one of the allowed values, min must be less than max
+**Fixture: client** - Returns an httpx.AsyncClient configured for testing the app. Should set base_url to "http://test" and follow_redirects to True.
 
-A model for configuration response:
-- tank_height: float (maximum tank height in meters)
-- tank_area: float (cross-sectional area in square meters)
-- valve_coefficient: float (valve k_v parameter)
-- initial_level: float (starting level in meters)
-- initial_setpoint: float (starting setpoint in meters)
-- pid_gains: object containing Kc, tau_I, tau_D
-- timestep: float (simulation time step in seconds)
+**Fixture: simulation_state** - Provides a dictionary representing a typical simulation state with all expected fields (time, tank_level, setpoint, inlet_flow, outlet_flow, valve_position, error, controller_output). Tests can override specific values as needed.
 
-A model for history query parameters:
-- duration: optional integer (seconds of history to return, default 3600)
-- Validation: must be positive and not exceed 7200 (2 hours max buffer)
+**Fixture: default_config** - Provides a dictionary representing the simulation configuration returned by GET /api/config.
 
-Use Pydantic's Field function to add constraints:
-- ge for greater-than-or-equal-to constraints
-- le for less-than-or-equal-to constraints
-- description strings for API documentation
+#### api/tests/test_endpoints.py specifications:
 
-All models should have clear docstrings explaining their purpose.
+This file should test all REST endpoints with various scenarios.
 
-#### api/simulation.py specifications:
+**Test: test_health_endpoint** - Verify GET /health returns status 200 and contains "status": "healthy".
 
-This file manages the simulation state and provides an interface for the API to interact with the tank simulator. For this task, create a minimal stub that will be expanded in later tasks.
+**Test: test_get_state** - Verify GET /api/state returns the current simulation state with all required fields. Check that response structure matches StateResponse Pydantic model.
 
-Create a class called SimulationManager with the following structure:
+**Test: test_get_config** - Verify GET /api/config returns configuration with all required fields (tank_area, tank_height, valve_coefficient, initial conditions, PID gains). Check that numeric values are reasonable.
 
-The class should be designed as a singleton (only one instance exists) to manage the shared simulation state across all API requests and WebSocket connections.
+**Test: test_get_history_default** - Verify GET /api/history without parameters returns recent history data. Check that response is a list of state entries with time, tank_level, and setpoint fields.
 
-For now, implement these methods as stubs:
+**Test: test_get_history_with_duration** - Verify GET /api/history?duration=60 returns history filtered to last 60 seconds. Check that returned entries span the requested duration.
 
-A constructor that:
-- Accepts a configuration dictionary
-- Stores the configuration
-- Sets initialized flag to False
-- Prepares for future initialization of the tank_sim.Simulator instance
+**Test: test_get_history_validation** - Verify that invalid duration values (negative, zero, non-numeric) return appropriate 422 validation errors with helpful messages.
 
-A method called initialize that:
-- Creates the tank_sim.Simulator instance using the stored configuration
-- Sets the initialized flag to True
-- Will be called during FastAPI startup
+**Test: test_post_setpoint_valid** - Verify POST /api/setpoint with valid value (within 0 to max_height range) succeeds and returns confirmation message.
 
-A method called get_state that:
-- Returns a dictionary with current simulation state
-- For now, return dummy data matching the StateSnapshot model structure
-- Will be implemented properly in the next task
+**Test: test_post_setpoint_out_of_range** - Verify POST /api/setpoint with value above max_height or below 0 returns 422 validation error.
 
-A method called step that:
-- Advances the simulation by one time step
-- For now, just return without doing anything
-- Will be implemented in the next task
+**Test: test_post_inlet_flow_valid** - Verify POST /api/inlet-flow with valid positive flow value succeeds.
 
-A method called reset that:
-- Resets the simulation to initial conditions
-- For now, just set a flag
-- Will be implemented in the next task
+**Test: test_post_inlet_flow_negative** - Verify POST /api/inlet-flow with negative value returns 422 validation error.
 
-Methods for control commands (setpoint, PID, inlet flow):
-- Accept the appropriate parameters
-- For now, just store them in instance variables
-- Will be implemented to actually call simulator methods in the next task
+**Test: test_post_pid_gains_valid** - Verify POST /api/pid-gains with valid PID parameters (Kc > 0, tau_I >= 0, tau_D >= 0) succeeds.
 
-The purpose of this stub is to define the interface between the API and the simulation so that main.py can be written and tested without the full simulation loop running yet.
+**Test: test_post_pid_gains_invalid** - Verify POST /api/pid-gains with invalid values (negative Kc, negative tau_I, negative tau_D) returns 422 validation error.
 
-#### api/main.py specifications:
+**Test: test_post_reset** - Verify POST /api/reset succeeds and returns confirmation. After reset, verify that GET /api/state returns initial conditions and GET /api/history returns empty or very short history.
 
-This file creates the FastAPI application, defines all endpoints, and manages the application lifecycle.
+**Test: test_cors_headers** - Verify that responses include appropriate CORS headers (Access-Control-Allow-Origin, Access-Control-Allow-Methods, etc.). Send OPTIONS preflight request and verify response.
 
-Create a FastAPI application instance with:
-- Title: "Tank Dynamics Simulator API"
-- Description: "Real-time tank level control simulation with PID control"
-- Version: "0.1.0"
+**Test: test_404_unknown_endpoint** - Verify that requests to non-existent endpoints return 404 with appropriate error format.
 
-Enable CORS middleware to allow frontend connections:
-- Allow origins from localhost ports 3000 and 5173 (Next.js and Vite dev servers)
-- Allow credentials
-- Allow all methods
-- Allow all headers
+**Test: test_json_parse_error** - Verify that POST requests with malformed JSON return 422 or 400 error with helpful message.
 
-Create a global SimulationManager instance that will be shared across all requests.
+#### api/tests/test_websocket.py specifications:
 
-Define a startup event handler that:
-- Initializes the SimulationManager with default configuration
-- Logs that the application has started
-- Will eventually start the simulation loop (in next task)
+This file should test WebSocket connection lifecycle and message handling.
 
-Define a shutdown event handler that:
-- Logs that the application is shutting down
-- Will eventually stop the simulation loop (in next task)
+**Test: test_websocket_connection** - Verify that a client can connect to /ws endpoint successfully. Check that connection is accepted and remains open.
 
-Create the following REST endpoints:
+**Test: test_websocket_receives_state_updates** - Connect to WebSocket and verify that state update messages arrive periodically. Check that message format matches expected structure with "type": "state" and "data" containing all state fields. Wait for at least 2 messages to verify continuous streaming.
 
-GET /api/health:
-- Returns a simple health check response with status "ok"
-- No authentication needed
-- Used for monitoring and deployment health checks
+**Test: test_websocket_setpoint_command** - Connect to WebSocket, send a setpoint command message (type: "setpoint", value: 3.0), and verify acknowledgment or state change. Check that no error is returned.
 
-GET /api/config:
-- Returns the current simulation configuration
-- Uses the ConfigResponse Pydantic model
-- Calls SimulationManager to get configuration data
+**Test: test_websocket_pid_command** - Send a PID gains command via WebSocket with valid parameters and verify acceptance.
 
-POST /api/reset:
-- Resets the simulation to initial steady state
-- Returns success message
-- Calls SimulationManager.reset()
+**Test: test_websocket_inlet_flow_command** - Send an inlet flow command via WebSocket and verify acceptance.
 
-POST /api/setpoint:
-- Accepts SetpointCommand in request body
-- Updates the simulation setpoint
-- Returns success message with new setpoint value
-- Validates input using Pydantic model
+**Test: test_websocket_invalid_json** - Send malformed JSON over WebSocket and verify that connection remains open and an error message is returned (not a connection close).
 
-POST /api/pid:
-- Accepts PIDCommand in request body
-- Updates PID controller gains
-- Returns success message with new gains
-- Validates input using Pydantic model
+**Test: test_websocket_missing_fields** - Send a command with missing required fields (e.g., setpoint command without "value") and verify appropriate error message is returned.
 
-POST /api/inlet_flow:
-- Accepts InletFlowCommand in request body
-- Updates inlet flow rate
-- Returns success message with new flow
-- Validates input using Pydantic model
+**Test: test_websocket_invalid_command_type** - Send a message with unknown "type" field and verify error message indicating unknown command type.
 
-POST /api/inlet_mode:
-- Accepts InletModeCommand in request body
-- Switches inlet between constant and Brownian modes
-- Returns success message with mode and parameters
-- Validates input using Pydantic model
+**Test: test_websocket_multiple_clients** - Open multiple WebSocket connections simultaneously and verify all receive state updates. Close one connection and verify others continue receiving updates.
 
-GET /api/history:
-- Accepts duration query parameter (optional, default 3600 seconds)
-- Returns historical data points
-- For now, return empty list (will implement ring buffer in next task)
-- Will eventually return list of StateSnapshot objects
+**Test: test_websocket_disconnect_cleanup** - Open a WebSocket connection, then close it, and verify that server properly removes it from the active connections set. Check that server logs indicate connection removed (if accessible).
 
-WebSocket endpoint /ws:
-- For now, create a basic WebSocket endpoint that accepts connections
-- Log when clients connect and disconnect
-- Echo back any received messages (for testing)
-- Will be implemented with real-time state broadcasting in next task
+#### api/tests/test_concurrent.py specifications:
 
-Use appropriate HTTP status codes:
-- 200 for successful GET/POST
-- 400 for validation errors (automatic via Pydantic)
-- 500 for server errors
+This file should test behavior under concurrent access patterns.
 
-Include error handling:
-- Wrap endpoint logic in try-except blocks
-- Return appropriate error responses with details
-- Log errors for debugging
+**Test: test_concurrent_rest_requests** - Make multiple simultaneous REST requests (GET /api/state) using asyncio.gather and verify all succeed with consistent results.
 
-#### api/requirements.txt specifications:
+**Test: test_concurrent_websocket_clients** - Open 10 WebSocket connections concurrently and verify all receive state updates simultaneously. Check that broadcasts go to all clients.
 
-List all dependencies needed to run the FastAPI server:
+**Test: test_mixed_concurrent_operations** - Simultaneously perform REST GET requests, REST POST requests, and WebSocket connections. Verify no race conditions or errors occur.
 
-- fastapi version 0.110.0 or higher (modern async support)
-- uvicorn version 0.27.0 or higher with standard extras (ASGI server)
-- pydantic version 2.6.0 or higher (data validation)
-- python-multipart (for form data, even though we use JSON)
-- websockets version 12.0 or higher (WebSocket support)
-- python-dotenv (environment variable management)
-- numpy version 1.20 or higher (array handling)
+**Test: test_history_query_during_updates** - Query GET /api/history repeatedly while simulation loop is adding new entries. Verify no corruption or exceptions occur due to concurrent access to the ring buffer.
 
-For development and testing:
-- pytest version 7.0 or higher
-- pytest-asyncio version 0.23.0 or higher (async test support)
-- httpx version 0.26.0 or higher (async HTTP client for testing)
+**Test: test_setpoint_changes_rapid_succession** - Send multiple setpoint change commands in rapid succession (faster than 1 Hz simulation rate) and verify all are accepted and last one wins. Check for any rate limiting or error handling.
 
-Pin to specific versions using == to ensure reproducibility, or use >= with maximum known-good versions.
+**Test: test_reset_during_active_connections** - Have multiple active WebSocket connections, then POST /api/reset, and verify that all clients receive subsequent state updates reflecting the reset state.
 
-The API will use the tank_sim package installed from the parent directory, so do not list it in requirements.txt (it will be installed separately).
+### Mock Implementation Strategy
 
-#### api/.env.example specifications:
+The mock for tank_sim should behave as follows:
 
-Create an example environment file showing configuration options:
+**TankSimulator constructor:** Accept config parameter but don't validate it. Store config for later inspection if needed.
 
-Include these variables with example values:
-- HOST: 0.0.0.0 (bind to all interfaces)
-- PORT: 8000 (default FastAPI port)
-- LOG_LEVEL: info (uvicorn logging level)
-- RELOAD: true (auto-reload during development, false for production)
+**step() method:** Do nothing (no-op). Alternatively, increment an internal time counter if tests need to verify step was called.
 
-Add comments explaining each variable and when to change them.
+**get_state() method:** Return a dictionary with realistic default values that tests can inspect. Allow tests to override return values via fixture configuration.
+
+**set_setpoint() method:** Accept value parameter, no-op or store for inspection.
+
+**set_inlet_flow() method:** Accept value parameter, no-op or store for inspection.
+
+**set_pid_gains() method:** Accept Kc, tau_I, tau_D parameters, no-op or store for inspection.
+
+**reset() method:** No-op or reset internal state to defaults.
+
+This allows tests to verify that the API correctly calls the simulation methods without requiring the actual C++ implementation.
 
 ### Verification Strategy
 
-After creating all files:
+Run the test suite with pytest and verify:
 
-Test that FastAPI application starts:
-- Run uvicorn api.main:app from the project root
-- Application should start without errors
-- Navigate to http://localhost:8000/docs to see auto-generated API documentation
-- Swagger UI should display all endpoints with proper models
+1. **All tests pass:** Run `pytest api/tests/ -v` and confirm all tests pass.
 
-Test health endpoint:
-- curl http://localhost:8000/api/health
-- Should return JSON with status "ok"
+2. **Coverage report:** Generate coverage report with `pytest api/tests/ --cov=api --cov-report=term-missing` and verify coverage of main.py, simulation.py, and models.py is above 80%.
 
-Test config endpoint:
-- curl http://localhost:8000/api/config
-- Should return configuration data (even if dummy data for now)
+3. **Test isolation:** Run tests in random order using `pytest --random-order` to verify no test depends on another test's state.
 
-Test WebSocket connection:
-- Use a WebSocket client tool or simple Python script
-- Connect to ws://localhost:8000/ws
-- Send a test message
-- Should receive the message echoed back
+4. **Fast execution:** Tests should complete in under 30 seconds since they mock the C++ layer.
 
-Verify API documentation:
-- Open http://localhost:8000/docs
-- Check that all endpoints are documented
-- Verify Pydantic models show up with validation rules
-- Test request/response examples in Swagger UI
+5. **CI/CD ready:** Tests should run successfully in a clean environment without needing the C++ tank_sim library installed.
 
-Check that all imports work:
-- Python should be able to import tank_sim
-- All Pydantic models should validate correctly
-- FastAPI should detect all route handlers
+### Edge Cases
 
-### Edge Cases and Potential Issues
+**Timing edge cases:** Tests that wait for WebSocket messages must use appropriate timeouts. Too short causes flaky tests, too long slows execution. Use 2-3 second timeouts for WebSocket receive operations.
 
-Import paths:
-- The api directory should be importable from the project root
-- Run the server from the project root directory, not from inside api/
-- Make sure PYTHONPATH includes the project root if needed
+**AsyncIO event loop issues:** Each test function must properly manage the asyncio event loop. Use pytest-asyncio markers (@pytest.mark.asyncio) for all async test functions.
 
-Tank_sim package availability:
-- The Python bindings must be installed before running the API
-- Use pip install -e . from project root to install in development mode
-- Or use uv pip install -e . if using uv for environment management
+**Fixture cleanup:** Ensure that httpx.AsyncClient instances are properly closed after tests using async context managers or proper cleanup.
 
-CORS configuration:
-- If frontend runs on a different port, add it to allowed origins
-- Development typically uses localhost:3000 (Next.js) or localhost:5173 (Vite)
+**Mock patching timing:** The tank_sim mock must be applied before the api modules are imported. Use conftest.py session-scoped autouse fixture to ensure correct ordering.
 
-Port conflicts:
-- Default port 8000 may already be in use
-- Can override with --port flag when running uvicorn
-- Or set PORT in .env file
-
-Validation errors:
-- Pydantic will automatically validate all request bodies
-- Returns 422 Unprocessable Entity for validation failures
-- Error messages show which fields failed and why
-
-Async vs sync:
-- FastAPI works best with async/await
-- The tank_sim package is synchronous (C++ bindings)
-- For now this is fine; simulation loop will run in background task
+**WebSocket client compatibility:** Use starlette.testclient.TestClient or httpx WebSocket support for testing. Be aware of differences in WebSocket test client APIs.
 
 ### Acceptance Criteria
 
-- [ ] All files created in api/ directory
-- [ ] FastAPI application starts without errors
-- [ ] Health endpoint returns 200 OK
-- [ ] Config endpoint returns valid configuration
-- [ ] All POST endpoints accept and validate requests
-- [ ] Pydantic models validate input correctly
-- [ ] WebSocket endpoint accepts connections
-- [ ] API documentation available at /docs
-- [ ] requirements.txt includes all dependencies
-- [ ] No import errors when running application
-- [ ] Code follows FastAPI best practices
+- [ ] All 5 test files created in api/tests/ directory
+- [ ] conftest.py provides reusable fixtures including mock_tank_sim
+- [ ] test_endpoints.py contains at least 15 REST endpoint tests covering normal and error cases
+- [ ] test_websocket.py contains at least 9 WebSocket tests covering connection, messages, and commands
+- [ ] test_concurrent.py contains at least 6 concurrency tests
+- [ ] All tests pass with `pytest api/tests/ -v`
+- [ ] Test coverage of API layer exceeds 80%
+- [ ] Tests run in under 30 seconds
+- [ ] Tests do not require C++ tank_sim library to be installed
+- [ ] No test failures when run with --random-order
 
 ---
 
-## Task 14: Implement Simulation Loop and WebSocket Broadcasting
+## Task 17: Implement Brownian Inlet Flow Mode
 
-**Phase:** 3 - FastAPI Backend
-**Prerequisites:** Task 13 complete (FastAPI structure created)
+**Phase:** 3 - FastAPI Backend  
+**Prerequisites:** Task 16 (testing infrastructure in place)
 
 ### Files to Modify
 
-- Modify `/home/roger/dev/tank_dynamics/api/simulation.py`
-- Modify `/home/roger/dev/tank_dynamics/api/main.py`
+- Modify `api/simulation.py` (add Brownian random walk logic)
+- Modify `api/main.py` (no changes needed, already has inlet_mode endpoint)
+- Create `api/tests/test_brownian.py` (tests for Brownian mode)
 
 ### Requirements
 
-This task implements the real-time simulation loop that runs at 1 Hz and broadcasts state updates to all connected WebSocket clients. This is the core functionality that makes the API a live, real-time system.
+The Brownian inlet flow mode should generate realistic random disturbances to the inlet flow rate, simulating real-world process variability. This allows users to test how well the PID controller rejects disturbances and maintains level control.
 
-#### Background Task Architecture:
+#### Brownian Motion Background:
 
-FastAPI provides background tasks that run alongside the application. The simulation loop will run as an asyncio task that:
-- Starts when the application starts (in the startup event)
-- Runs continuously in the background at 1 Hz
-- Stops when the application shuts down (in the shutdown event)
-- Broadcasts state to all connected WebSocket clients after each step
+A Brownian random walk is a stochastic process where the value changes by small random steps over time. For inlet flow:
 
-The challenge is coordinating between:
-- The synchronous tank_sim.Simulator (C++ code)
-- The async FastAPI WebSocket handlers
-- The 1 Hz timing requirement
+- Start at current inlet_flow value
+- Each simulation step (1 Hz), add a random increment drawn from a normal distribution
+- The increment has mean 0 and variance σ² (configurable)
+- Clamp the resulting flow to [min, max] bounds to prevent unrealistic extremes
+
+This creates a smooth, wandering inlet flow that mimics real disturbances like pump variability, upstream process changes, or measurement noise.
 
 #### api/simulation.py modifications:
 
-Replace the stub methods with full implementations.
+**In the SimulationManager class:**
 
-Add a connections set to track active WebSocket connections:
-- Use a Python set to store WebSocket connection objects
-- Add connections when clients connect
-- Remove connections when clients disconnect
-- Thread-safe access since multiple async tasks may modify it
+Add a method called apply_brownian_inlet that computes the next inlet flow value using Brownian motion. This method should:
 
-Implement the initialize method properly:
-- Import tank_sim
-- Call tank_sim.create_default_config() to get base configuration
-- Create a tank_sim.Simulator instance
-- Store it as an instance variable
-- Set initialized flag to True
+- Accept the current inlet flow value as a parameter
+- Generate a random increment using numpy.random.normal with mean 0 and standard deviation based on inlet_mode_params["variance"]
+- Add this increment to the current inlet flow
+- Clamp the result to [inlet_mode_params["min"], inlet_mode_params["max"]]
+- Return the new inlet flow value
 
-Implement the get_state method:
-- Check that simulator is initialized
-- Call appropriate methods on the simulator to get current state:
-  - getTime() for simulation time
-  - getState() returns numpy array - extract tank level (index 0)
-  - getInputs() returns numpy array - extract inlet flow and valve position
-  - getSetpoint() for the level setpoint
-  - getError() for control error
-- Calculate outlet flow using valve equation: q_out = k_v * valve_position * sqrt(tank_level)
-- Return a dictionary matching the StateSnapshot Pydantic model
-- Handle any exceptions and return safe default values
+**In the step method:**
 
-Implement the step method:
-- Call simulator.step() to advance simulation by one time step
-- This is a synchronous call to C++ code
-- Will be called from the simulation loop at 1 Hz
+Before calling self.simulator.step(), check if inlet_mode is "brownian". If so:
 
-Implement control command methods:
-- set_setpoint: call simulator.setSetpoint(0, value) - 0 is the controller index
-- set_pid_gains: call simulator.setControllerGains(0, gains) with a gains dictionary
-- set_inlet_flow: call simulator.setInput(0, value) - 0 is the inlet flow input index
-- set_inlet_mode: store mode and parameters for Brownian implementation (future task)
+- Get the current inlet flow from self.simulator.get_inputs()[0]
+- Call apply_brownian_inlet to compute the new inlet flow
+- Set the new inlet flow using self.simulator.set_input(0, new_flow)
 
-Implement the reset method:
-- Call simulator.reset() to restore initial conditions
-- Reset any internal state variables
+This ensures the inlet flow changes organically with each simulation step while the PID controller tries to compensate.
 
-Add a broadcast method:
-- Accepts a message dictionary
-- Iterates through all connected WebSockets
-- Sends the message to each connection
-- Removes connections that fail (client disconnected)
-- Use asyncio to send messages concurrently
-- Handle WebSocket errors gracefully
+**Variance parameter interpretation:**
 
-Add a simulation_loop coroutine:
-- Runs forever in a while True loop
-- Uses asyncio.sleep(1.0) to maintain 1 Hz timing
-- Calls self.step() to advance simulation
-- Calls self.get_state() to get current state
-- Formats state as JSON message: {"type": "state", "data": {...}}
-- Calls self.broadcast() to send to all clients
-- Handles exceptions without crashing the loop
-- Logs each iteration for debugging
+The variance parameter should be interpreted as the standard deviation of the step increment, not the variance of the final distribution. Typical useful values:
 
-#### api/main.py modifications:
+- Small disturbances: variance = 0.01 to 0.05 m³/s per step
+- Moderate disturbances: variance = 0.05 to 0.1 m³/s per step
+- Large disturbances: variance = 0.1 to 0.2 m³/s per step
 
-Add a module-level variable to store the background task:
-- simulation_task: asyncio.Task or None
-- Used to track and cancel the task on shutdown
+The cumulative effect over many steps creates a wandering behavior. Too large a variance causes unrealistic jumps; too small is barely perceptible.
 
-Modify the startup event handler:
-- After initializing SimulationManager, create the simulation loop task
-- Use asyncio.create_task(simulation_manager.simulation_loop())
-- Store the task reference in simulation_task
-- Log that the simulation loop has started
+**Clamping behavior:**
 
-Modify the shutdown event handler:
-- Cancel the simulation_task if it exists
-- Use task.cancel() and await it
-- Log that the simulation loop has stopped
+When the random walk reaches a boundary (min or max), it should reflect rather than stick. Alternatively, simply clamp to bounds and allow the next random step to potentially move it away from the boundary. The simple clamp approach is sufficient and easier to implement.
 
-Implement the WebSocket endpoint /ws properly:
-- Accept the WebSocket connection with await websocket.accept()
-- Add the connection to simulation_manager.connections
-- Start a receive loop to handle incoming client messages
-- Parse JSON messages from clients
-- Route messages based on "type" field:
-  - "setpoint": extract value and call set_setpoint
-  - "pid": extract Kc, tau_I, tau_D and call set_pid_gains
-  - "inlet_flow": extract value and call set_inlet_flow
-  - "inlet_mode": extract mode and parameters, call set_inlet_mode
-- Handle WebSocketDisconnect exception when client disconnects
-- Remove connection from simulation_manager.connections in finally block
-- Log all connections and disconnections
+**Seed control (optional but recommended):**
 
-Add error handling:
-- Catch and log any exceptions in message parsing
-- Send error messages back to client on invalid commands
-- Don't crash the WebSocket connection on errors
+For reproducible testing, consider accepting an optional random seed parameter. This allows tests to verify expected behavior with a known random sequence.
 
-### Timing Considerations
+#### WebSocket/REST interface (already implemented):
 
-The 1 Hz simulation loop must be accurate and consistent:
+The inlet_mode endpoint is already implemented in Task 14. No changes needed to main.py. The command format is:
 
-Use asyncio.sleep(1.0) for timing:
-- This is sufficient for 1 Hz and won't accumulate drift
-- More sophisticated timing could use time.time() to measure actual elapsed time
-- For this application, simple sleep is acceptable
-
-The simulator.step() call is synchronous (C++):
-- It should complete in well under 1 second (likely microseconds)
-- Running it in the async event loop is fine for this use case
-- If it becomes a bottleneck, could use run_in_executor to run in thread pool
-
-Broadcasting to WebSocket clients is async:
-- Send to all clients concurrently using asyncio.gather or similar
-- Don't wait for slow clients - drop messages if send fails
-
-### WebSocket Message Format
-
-Messages from server to clients (broadcast):
 ```json
 {
-  "type": "state",
-  "data": {
-    "time": 125.0,
-    "tank_level": 2.5,
-    "setpoint": 2.5,
-    "inlet_flow": 1.0,
-    "outlet_flow": 1.0,
-    "valve_position": 0.5,
-    "error": 0.0,
-    "controller_output": 0.5
-  }
+  "type": "inlet_mode",
+  "mode": "brownian",
+  "min": 0.8,
+  "max": 1.2,
+  "variance": 0.05
 }
 ```
 
-Messages from clients to server:
+To disable Brownian mode and return to constant inlet flow:
+
 ```json
-{"type": "setpoint", "value": 3.0}
-{"type": "pid", "Kc": 1.5, "tau_I": 10.0, "tau_D": 0.0}
-{"type": "inlet_flow", "value": 1.2}
-{"type": "inlet_mode", "mode": "brownian", "min": 0.8, "max": 1.2}
+{
+  "type": "inlet_mode",
+  "mode": "constant"
+}
 ```
 
-Error messages from server to clients:
-```json
-{"type": "error", "message": "Invalid command format"}
-```
+#### api/tests/test_brownian.py specifications:
+
+This file should test the Brownian inlet flow implementation.
+
+**Test: test_brownian_mode_changes_inlet_flow** - Set inlet mode to Brownian with reasonable parameters (min=0.8, max=1.2, variance=0.05). Run simulation for 10 steps. Verify that inlet flow changes between steps (not constant). Verify that inlet flow stays within bounds.
+
+**Test: test_brownian_mode_respects_bounds** - Set inlet mode to Brownian with tight bounds (min=0.95, max=1.05) and high variance (variance=0.5). Run simulation for 50 steps. Verify that inlet flow NEVER exceeds min or max bounds despite high variance.
+
+**Test: test_brownian_mode_mean_reversion** - Set inlet mode to Brownian centered at 1.0 with symmetric bounds (min=0.5, max=1.5). Run simulation for 1000 steps and collect all inlet flow values. Compute the mean of collected values. Verify that the mean is approximately 1.0 (within ±0.2), demonstrating that the random walk is unbiased.
+
+**Test: test_brownian_variance_effect** - Run two simulations: one with low variance (0.01) and one with high variance (0.2). Run each for 100 steps. Compute the standard deviation of inlet flow values for each. Verify that high variance simulation has higher standard deviation than low variance simulation.
+
+**Test: test_constant_mode_disables_brownian** - Set inlet mode to Brownian, run 5 steps to establish random walk, then switch back to constant mode. Verify that inlet flow stops changing after switching to constant mode.
+
+**Test: test_brownian_with_seed_reproducible** - If seed parameter is implemented, verify that two simulations with the same seed produce identical inlet flow sequences.
+
+**Test: test_brownian_mode_parameter_validation** - Verify that invalid Brownian parameters (min > max, negative variance, etc.) are rejected with appropriate validation errors.
+
+**Test: test_pid_rejects_brownian_disturbances** - Set inlet mode to Brownian with moderate disturbances (variance=0.05). Run simulation for 300 steps (5 minutes). Verify that despite inlet flow changes, the tank level remains close to setpoint (error less than 0.5 m for majority of time). This demonstrates that the PID controller successfully rejects disturbances.
+
+### Implementation Notes
+
+**Import numpy:** Add `import numpy as np` at the top of api/simulation.py if not already present.
+
+**Random seed management:** If implementing seed control, store the numpy random generator state in SimulationManager. Use `self.rng = np.random.default_rng(seed)` in __init__ and `self.rng.normal()` for generation.
+
+**Performance considerations:** Generating a single random number per second (1 Hz) has negligible performance impact. No optimization needed.
+
+**Thread safety:** The Brownian update happens in the simulation loop (single thread), so no locking required.
+
+**Logging:** Consider logging when Brownian mode is enabled/disabled and when parameters change. Use INFO level: "Brownian inlet mode enabled: min=0.8, max=1.2, variance=0.05"
 
 ### Verification Strategy
 
-Test simulation loop startup:
-- Start the FastAPI server
-- Check logs for "Simulation loop started" message
-- Verify no errors in startup
+1. **Visual verification:** Run the FastAPI server, enable Brownian mode via WebSocket, and watch the inlet flow in GET /api/state responses. It should wander smoothly within bounds.
 
-Test WebSocket connection and broadcasting:
-- Use a WebSocket client (wscat, websocat, or Python script)
-- Connect to ws://localhost:8000/ws
-- Should immediately start receiving state messages every second
-- Verify time field increments by 1 each message
-- Verify state values are reasonable (level around 2.5, flows around 1.0)
+2. **Unit tests pass:** Run `pytest api/tests/test_brownian.py -v` and verify all tests pass.
 
-Test setpoint command:
-- Send setpoint change: {"type": "setpoint", "value": 3.0}
-- Watch state messages - level should start increasing
-- Error should change from ~0 to negative
-- Valve position should change as PID responds
+3. **Integration test:** Connect a WebSocket client, enable Brownian mode, and observe state messages. Verify that inlet_flow field changes over time while tank_level remains relatively stable.
 
-Test PID tuning:
-- Send new PID gains: {"type": "pid", "Kc": 2.0, "tau_I": 5.0, "tau_D": 0.0}
-- Make a setpoint change
-- Observe different response (faster, potentially more oscillation)
+4. **Parameter sweep:** Test with various variance values (0.01, 0.05, 0.1, 0.2) and observe behavior. Small variance should produce gentle wandering; large variance should produce more aggressive disturbances.
 
-Test inlet flow change:
-- Send inlet flow change: {"type": "inlet_flow", "value": 0.8}
-- Level should start decreasing (outlet > inlet)
-- PID should open valve to compensate
-
-Test multiple WebSocket clients:
-- Connect 2-3 clients simultaneously
-- All should receive the same state updates
-- Commands from one client should affect state seen by all
-
-Test client disconnect:
-- Connect a client and disconnect
-- Server should remove from connections list
-- No errors should be logged
-
-Test reset endpoint:
-- POST to /api/reset
-- Simulation should return to initial state
-- Level should go back to 2.5 m
-- Time should reset to 0
+5. **Controller stability:** Verify that the PID controller remains stable under Brownian disturbances. Level should not oscillate wildly or drift far from setpoint.
 
 ### Edge Cases
 
-WebSocket connection failures:
-- Client disconnects unexpectedly - should be caught by WebSocketDisconnect
-- Network errors during send - should catch and remove connection
-- Invalid JSON from client - should send error message, not crash
+**Boundary clipping frequency:** With very high variance and tight bounds, the inlet flow may hit boundaries frequently. Verify this doesn't cause numerical issues or unexpected behavior.
 
-Simulation errors:
-- If simulator.step() raises exception - log and continue loop
-- If get_state() fails - send last known good state or default values
+**Zero variance:** If variance=0, Brownian mode should behave identically to constant mode (no changes). Consider treating this as equivalent to constant mode.
 
-Concurrent access:
-- Multiple WebSocket handlers may call set_setpoint etc. simultaneously
-- For now this is acceptable - last command wins
-- Could add locking if needed, but 1 Hz is slow enough it's unlikely to matter
+**Very large variance:** With variance much larger than (max - min)/2, nearly every step will hit a boundary. This is valid but produces unrealistic "bang-bang" behavior. Consider documenting recommended variance ranges.
 
-Startup timing:
-- Ensure simulator is initialized before first loop iteration
-- Handle case where no clients are connected (don't error)
+**Mode switching mid-simulation:** Switching from constant to Brownian should start the random walk from the current inlet flow value (no discontinuity). Switching from Brownian to constant should freeze inlet flow at the current value.
 
-Memory management:
-- Ring buffer not implemented yet (next task)
-- State is only current snapshot, no history stored yet
+**Reset behavior:** When simulation is reset, inlet_mode should reset to constant, and inlet flow should return to initial conditions. Brownian parameters should be cleared.
 
 ### Acceptance Criteria
 
-- [ ] Simulation loop runs at 1 Hz continuously
-- [ ] WebSocket clients receive state updates every second
-- [ ] Time field in state updates increments correctly
-- [ ] Setpoint changes propagate to simulator
-- [ ] PID gain changes work correctly
-- [ ] Inlet flow changes work correctly
-- [ ] Multiple clients can connect simultaneously
-- [ ] Client disconnects handled gracefully
-- [ ] Reset endpoint works correctly
-- [ ] No errors in simulation loop during normal operation
-- [ ] State values are physically reasonable
+- [ ] apply_brownian_inlet method implemented in SimulationManager
+- [ ] Brownian logic integrated into SimulationManager.step() method
+- [ ] Inlet flow changes smoothly over time when Brownian mode enabled
+- [ ] Inlet flow always stays within [min, max] bounds
+- [ ] Switching between constant and Brownian modes works correctly
+- [ ] Test file test_brownian.py created with at least 8 tests
+- [ ] All Brownian tests pass
+- [ ] PID controller successfully rejects Brownian disturbances (level stays near setpoint)
+- [ ] Logging added for Brownian mode enable/disable events
+- [ ] Documentation updated with Brownian mode usage examples
 
 ---
 
-## Task 15: Implement History Ring Buffer and REST Endpoints
+## Task 18: API Documentation and Production Deployment Guide
 
-**Phase:** 3 - FastAPI Backend
-**Prerequisites:** Task 14 complete (simulation loop and WebSocket working)
+**Phase:** 3 - FastAPI Backend  
+**Prerequisites:** Tasks 16-17 (testing and features complete)
 
-### Files to Modify
+### Files to Create/Modify
 
-- Modify `/home/roger/dev/tank_dynamics/api/simulation.py`
-- Modify `/home/roger/dev/tank_dynamics/api/main.py`
+- Create `api/README.md` (API-specific documentation)
+- Create `docs/API_REFERENCE.md` (comprehensive endpoint documentation)
+- Create `docs/DEPLOYMENT.md` (production deployment guide)
+- Create `examples/websocket_client.py` (Python WebSocket client example)
+- Create `examples/websocket_client.html` (JavaScript WebSocket client example)
+- Create `examples/rest_client.py` (Python REST API client example)
+- Modify main `README.md` (update with Phase 3 completion status)
 
 ### Requirements
 
-This task implements the historical data storage and retrieval system. The API needs to maintain a ring buffer of the last 2 hours of simulation data (approximately 7200 data points at 1 Hz) and provide REST endpoints to query this history.
+The documentation should provide everything a user or developer needs to understand, deploy, and use the API. This includes complete endpoint references, usage examples, deployment procedures, and troubleshooting guidance.
 
-#### Ring Buffer Architecture:
+#### docs/API_REFERENCE.md specifications:
 
-A ring buffer (circular buffer) is a fixed-size data structure that overwrites the oldest data when full. This is perfect for maintaining a sliding window of recent history without unbounded memory growth.
+This document should provide comprehensive reference for all API endpoints.
 
-Key characteristics:
-- Fixed capacity: 7200 entries (2 hours at 1 Hz)
-- FIFO behavior: oldest data is automatically discarded
-- Efficient: O(1) insertion, no memory allocation after initialization
-- Thread-safe: needs to handle concurrent reads (from REST endpoint) and writes (from simulation loop)
+**Structure:**
 
-Python implementation options:
-- collections.deque with maxlen parameter (built-in, thread-safe for our use case)
-- Custom circular buffer implementation (more control but unnecessary complexity)
-- Simple list with manual wraparound (error-prone)
+1. **Overview section** - Brief description of the API, base URL, authentication status (none currently), CORS configuration.
 
-Recommendation: Use collections.deque with maxlen=7200 for simplicity and correctness.
+2. **REST Endpoints section** - For each endpoint, document:
+   - HTTP method and path
+   - Purpose and description
+   - Request parameters (path, query, body) with types and constraints
+   - Request body schema (JSON structure with field descriptions)
+   - Success response (status code, body schema, example)
+   - Error responses (possible status codes, error format, examples)
+   - Example curl commands
+   - Example responses
 
-#### api/simulation.py modifications:
+3. **WebSocket Endpoint section** - Document:
+   - WebSocket URL path (/ws)
+   - Connection procedure
+   - Message format for server-to-client messages (state updates)
+   - Message format for client-to-server commands (setpoint, PID, inlet_flow, inlet_mode)
+   - Error message format
+   - Connection lifecycle (connect, receive, send, disconnect)
+   - Example message sequences
 
-Add ring buffer initialization:
-- Import collections.deque
-- In __init__ or initialize method, create a deque with maxlen=7200
-- Store as instance variable: self.history
-- Each entry should be a complete state snapshot (dictionary matching StateSnapshot model)
+4. **Data Models section** - Define all Pydantic models with field descriptions, types, constraints, and example JSON.
 
-Modify the simulation_loop coroutine:
-- After calling get_state(), store the result in the ring buffer
-- Use self.history.append(state_dict)
-- The deque will automatically discard oldest entry when at max capacity
-- This happens after broadcasting to WebSocket clients
+5. **Error Handling section** - Explain error response format, common error codes, validation error structure.
 
-Add a get_history method:
-- Accepts duration parameter (seconds of history to return)
-- Default to 3600 (1 hour)
-- Validate that duration is between 1 and 7200
-- Calculate number of entries to return: min(duration, len(history))
-- Return the last N entries from the deque as a list
-- Convert deque to list using list(self.history)[-N:]
-- Return in chronological order (oldest first)
+6. **Rate Limits section** - Document any rate limiting (currently none, but mention this explicitly).
 
-Add thread safety if needed:
-- For this application, deque operations are atomic enough
-- If issues arise, could add a threading.Lock around append and read operations
-- For 1 Hz update rate, this is unlikely to be necessary
+**Endpoints to document:**
 
-#### api/main.py modifications:
+- GET /health - Health check
+- GET /api/state - Get current simulation state
+- GET /api/config - Get simulation configuration
+- GET /api/history - Get historical data with duration parameter
+- POST /api/setpoint - Change setpoint
+- POST /api/pid-gains - Update PID gains
+- POST /api/inlet-flow - Set inlet flow rate
+- POST /api/reset - Reset simulation
+- WS /ws - WebSocket for real-time updates and commands
 
-Implement the GET /api/history endpoint properly:
-- Currently returns empty list - replace with actual history query
-- Extract duration query parameter (default 3600)
-- Validate duration is positive and <= 7200
-- Call simulation_manager.get_history(duration)
-- Return the list of state snapshots
-- FastAPI will automatically serialize using StateSnapshot model
+For each endpoint, provide at least one complete example showing request and response.
 
-The history endpoint should return JSON array of state snapshots:
-```json
-[
-  {
-    "time": 0.0,
-    "tank_level": 2.5,
-    "setpoint": 2.5,
-    ...
-  },
-  {
-    "time": 1.0,
-    "tank_level": 2.501,
-    "setpoint": 2.5,
-    ...
-  },
-  ...
-]
-```
+#### docs/DEPLOYMENT.md specifications:
 
-Add query parameter validation:
-- Use FastAPI's Query with constraints
-- duration: int = Query(default=3600, ge=1, le=7200)
-- This provides automatic validation and documentation
+This document should guide users through deploying the API in production.
 
-Handle edge cases:
-- If history is empty (just started): return empty list
-- If requested duration exceeds available history: return all available
-- If duration is invalid: FastAPI automatically returns 422 error
+**Structure:**
 
-Update the config endpoint if needed:
-- Should return actual configuration from simulation_manager
-- Include ring buffer capacity: "history_capacity": 7200
-- Include current history size: "history_size": len(simulation_manager.history)
+1. **Prerequisites section** - List requirements:
+   - Python version (3.10+)
+   - System packages needed (build tools for compiling pybind11 module)
+   - C++ dependencies (Eigen, GSL, pybind11)
+   - Network requirements (ports, firewall rules)
+
+2. **Installation section** - Step-by-step instructions:
+   - Clone repository
+   - Build C++ simulation library
+   - Install Python package (tank_sim)
+   - Install API dependencies (pip install -r api/requirements.txt)
+   - Verify installation with test commands
+
+3. **Configuration section** - Explain:
+   - Environment variables (.env file)
+   - CORS configuration for production (update allowed origins)
+   - Logging configuration
+   - Port selection
+
+4. **Running in Development section** - Explain uvicorn development server with --reload flag, appropriate for local testing.
+
+5. **Running in Production section** - Explain:
+   - Use uvicorn without --reload
+   - MUST use --workers 1 (single worker for singleton simulation)
+   - Bind to appropriate host (0.0.0.0 or specific IP)
+   - Use HTTPS in production (TLS certificate setup)
+   - Reverse proxy setup (nginx or Apache) with WebSocket support
+   - Keep-alive configuration for WebSocket connections
+
+6. **Systemd Service section** - Provide a complete systemd service file example:
+   - Service definition with proper WorkingDirectory
+   - Automatic restart on failure
+   - Logging to journalctl
+   - User/group configuration
+   - Environment file integration
+   - Enable and start commands
+
+7. **Nginx Reverse Proxy section** - Provide nginx configuration example:
+   - Proxy WebSocket connections (requires upgrade headers)
+   - Proxy HTTP REST endpoints
+   - TLS/SSL configuration
+   - Appropriate timeouts for long-lived WebSocket connections
+   - CORS headers if not handled by FastAPI
+
+8. **Monitoring section** - Explain:
+   - Health check endpoint for monitoring (GET /health)
+   - Log locations and formats
+   - Systemd journal inspection
+   - Suggested monitoring tools (Prometheus, Grafana)
+
+9. **Troubleshooting section** - Common issues and solutions:
+   - Port already in use
+   - WebSocket connection failures
+   - CORS errors
+   - Module import errors (tank_sim not found)
+   - Permission issues
+   - Multiple workers issue (simulation state divergence)
+
+10. **Security Considerations section** - Discuss:
+    - No authentication currently (suitable for trusted networks only)
+    - Adding authentication if needed (OAuth2, API keys)
+    - HTTPS/TLS requirement for production
+    - CORS configuration for public deployment
+    - Firewall rules
+    - Input validation (already handled by Pydantic)
+
+#### api/README.md specifications:
+
+This file should provide a quick start guide for the API specifically.
+
+**Contents:**
+
+- Brief description of the FastAPI backend
+- Quick start instructions (how to run locally)
+- Link to comprehensive API_REFERENCE.md
+- Link to DEPLOYMENT.md for production setup
+- Directory structure explanation
+- Testing instructions (pytest)
+- Development tips (--reload, debugging)
+
+#### examples/websocket_client.py specifications:
+
+A complete, runnable Python script demonstrating WebSocket usage.
+
+**Features:**
+
+- Connect to ws://localhost:8000/ws
+- Receive and print state updates
+- Send a setpoint command after 5 seconds
+- Send a PID gains command after 10 seconds
+- Handle connection errors gracefully
+- Use asyncio and websockets library
+- Include comments explaining each step
+
+**Usage:** `python examples/websocket_client.py`
+
+#### examples/websocket_client.html specifications:
+
+A complete, self-contained HTML file with JavaScript demonstrating WebSocket usage in the browser.
+
+**Features:**
+
+- Connect to WebSocket using browser WebSocket API
+- Display received state updates in a table or formatted div
+- Provide input fields for sending commands (setpoint, inlet_flow)
+- Buttons to trigger commands
+- Connection status indicator
+- Error handling and display
+- Works by opening the file directly in a browser (no server needed)
+
+**Usage:** Open file in web browser, works with API running on localhost:8000.
+
+#### examples/rest_client.py specifications:
+
+A complete, runnable Python script demonstrating REST API usage.
+
+**Features:**
+
+- Use requests library for HTTP calls
+- Demonstrate each REST endpoint with examples
+- GET /api/state and print current state
+- GET /api/config and print configuration
+- GET /api/history?duration=60 and print summary of history
+- POST /api/setpoint with new value
+- POST /api/inlet-flow with new value
+- POST /api/reset
+- Error handling with try-except blocks
+- Comments explaining each API call
+
+**Usage:** `python examples/rest_client.py`
+
+#### Main README.md modifications:
+
+Update the main project README to reflect Phase 3 completion:
+
+**In Project Status section:**
+
+- Mark Phase 3 as ✅ COMPLETE
+- Update "Current Phase" to indicate Phase 3 complete, Phase 4 upcoming
+- Add completion date for Phase 3
+
+**In Quick Start section:**
+
+- Add instructions for running the FastAPI server
+- Add link to API_REFERENCE.md for API details
+- Add link to examples/ directory
+
+**In Testing section:**
+
+- Add instructions for running API tests (pytest api/tests/)
+- Document test coverage results
 
 ### Verification Strategy
 
-Test ring buffer accumulation:
-- Start the server and let it run for 10+ seconds
-- Query /api/history?duration=10
-- Should return approximately 10 data points
-- Verify time field increases monotonically
-- Verify timestamps are accurate (first entry around time=0 if just started)
+1. **Documentation completeness:** Review each document and verify that all sections are complete and accurate. No placeholder text (e.g., "TODO") should remain.
 
-Test maximum history:
-- Let server run for several minutes
-- Query /api/history?duration=7200
-- Should return all available data up to 7200 points
-- If not running for 2 hours, returns whatever is available
+2. **Example functionality:** Run each example script and HTML file against a running API server. Verify they work without modifications:
+   - `python examples/websocket_client.py` - connects and receives updates
+   - `python examples/rest_client.py` - successfully calls all REST endpoints
+   - Open `examples/websocket_client.html` in browser - UI works and can send commands
 
-Test duration parameter:
-- Query with duration=60: should return ~60 points
-- Query with duration=1: should return ~1 point
-- Query with duration=0: should return validation error (422)
-- Query with duration=10000: should return validation error (422)
-- Query with no duration: should default to 3600 and return up to 1 hour
+3. **Deployment procedure validation:** Follow DEPLOYMENT.md step-by-step on a clean system (or VM) and verify that the API can be deployed successfully following only the documentation.
 
-Test data consistency:
-- Each entry in history should match StateSnapshot structure
-- All required fields should be present
-- Values should be physically reasonable
-- Time values should be sequential
+4. **Systemd service test:** Install the systemd service file and verify:
+   - Service starts successfully with `systemctl start tank-sim-api`
+   - Service restarts automatically if killed
+   - Logs appear in journalctl
+   - Service starts on boot after `systemctl enable tank-sim-api`
 
-Test concurrent access:
-- Make history requests while simulation is running
-- Should not cause errors or inconsistent data
-- Simulation loop continues unaffected
+5. **Nginx reverse proxy test:** Set up nginx with provided configuration and verify:
+   - REST endpoints accessible through nginx
+   - WebSocket connections work through nginx
+   - TLS/SSL works if configured
 
-Test reset behavior:
-- Call POST /api/reset
-- History buffer should clear
-- New data should accumulate from time=0
-- Query history after reset should return only post-reset data
+6. **Link validation:** Check that all internal documentation links work (no broken references between documents).
 
-Test memory stability:
-- Let server run for 3+ hours (exceeding ring buffer capacity)
-- Memory usage should stabilize (not grow indefinitely)
-- Buffer should contain exactly 7200 entries
-- Oldest data should be discarded automatically
-
-### Ring Buffer Memory Calculation
-
-Each state snapshot contains approximately:
-- 8 floats × 8 bytes = 64 bytes of numeric data
-- Dictionary overhead: ~200 bytes
-- Total per entry: ~300 bytes
-
-Ring buffer capacity:
-- 7200 entries × 300 bytes = 2.16 MB
-- Negligible memory usage for modern systems
-
-This confirms the ring buffer approach is appropriate - memory usage is bounded and small.
-
-### Edge Cases
-
-Empty history:
-- Server just started, no data yet
-- Return empty list, not an error
-
-Partial history:
-- Requested duration exceeds available history
-- Return all available data, not an error
-- Client can check length of returned array
-
-Time discontinuity after reset:
-- History contains data from before reset (old time) and after (restarted from 0)
-- Option 1: Clear history on reset (recommended)
-- Option 2: Keep old data, client deals with time jump
-- Recommendation: Clear history in reset() method for consistency
-
-Very slow clients:
-- If HTTP request to /api/history takes longer than 1 second
-- Ring buffer continues updating in background
-- Client gets a consistent snapshot at time of request
-- No locking needed due to Python GIL and atomic deque operations
+7. **API reference accuracy:** For each endpoint documented in API_REFERENCE.md, make a test request and verify the response matches the documentation.
 
 ### Acceptance Criteria
 
-- [ ] Ring buffer accumulates state snapshots at 1 Hz
-- [ ] Buffer capacity limited to 7200 entries
-- [ ] Oldest data automatically discarded when buffer full
-- [ ] GET /api/history returns correct number of entries
-- [ ] Duration parameter validated correctly
-- [ ] History data matches StateSnapshot model structure
-- [ ] History can be queried while simulation running
-- [ ] Reset clears history buffer
-- [ ] Memory usage bounded after long runtime
-- [ ] All history entries have sequential time values
-- [ ] Default duration (3600) works correctly
+- [ ] API_REFERENCE.md created with complete documentation of all endpoints
+- [ ] DEPLOYMENT.md created with step-by-step production deployment guide
+- [ ] api/README.md created with quick start instructions
+- [ ] examples/websocket_client.py created and tested
+- [ ] examples/websocket_client.html created and tested in browser
+- [ ] examples/rest_client.py created and tested
+- [ ] Systemd service file example provided in DEPLOYMENT.md
+- [ ] Nginx configuration example provided in DEPLOYMENT.md
+- [ ] Main README.md updated with Phase 3 completion status
+- [ ] All example scripts run successfully against running API
+- [ ] Documentation reviewed and contains no placeholders or TODOs
+- [ ] At least one developer successfully deploys API following only DEPLOYMENT.md
+- [ ] All links between documentation files are valid
 
 ---
 
-## Upcoming Work (After Task 15)
+## Upcoming Work (After Task 18)
 
-After completing the three core FastAPI tasks, the following work remains:
-
-### Task 16: API Testing Suite (pytest)
-- Write comprehensive tests for all REST endpoints
-- Test WebSocket connection and message handling
-- Test simulation loop timing accuracy
-- Test ring buffer behavior
-- Test concurrent client scenarios
-- Mock the tank_sim module for testing without C++ dependencies
-
-### Task 17: Brownian Inlet Flow Mode (Enhancement)
-- Implement random walk for inlet flow
-- Add variance and bounds to Brownian parameters
-- Test that Brownian mode generates realistic disturbances
-- Ensure PID controller can reject Brownian disturbances
-
-### Task 18: API Documentation and Deployment Guide
-- Document all endpoints with examples
-- Create API client examples in Python and JavaScript
-- Write deployment guide for production (systemd, nginx, etc.)
-- Document environment variables and configuration options
+After completing Tasks 16-18, Phase 3 (FastAPI Backend) will be fully complete. The next phase is:
 
 ### Phase 4: Next.js Frontend
-Once the API is complete and tested, proceed to Phase 4 to build the web UI.
+
+**Goals:** Build the SCADA-style web UI with real-time process visualization and trend charts.
+
+**Initial tasks will include:**
+
+- Next.js project setup with App Router
+- Tailwind CSS configuration with dark theme
+- WebSocket connection hook
+- Basic layout with tab navigation (Process View / Trends View)
+- Tank visualization component
+- Real-time data integration
+- Trend charting with Recharts
+- Control panel for setpoint, PID, and inlet flow
+
+The frontend will be developed in subsequent sprints after Phase 3 is fully complete and merged to main.
 
 ---
 
-## Notes
+## Notes on Phase 3 Testing
 
-### Running the FastAPI Server
+### Running the Full Test Suite
 
-Development mode:
+Run all API tests:
 ```bash
 cd /home/roger/dev/tank_dynamics
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+pytest api/tests/ -v
 ```
 
-Production mode:
+Run with coverage:
 ```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 1
+pytest api/tests/ --cov=api --cov-report=html --cov-report=term
 ```
 
-**Important:** Use only 1 worker. Multiple workers would create multiple simulation instances, which is incorrect. The simulation state must be singular.
-
-### Testing WebSocket Connection
-
-Using Python:
-```python
-import asyncio
-import websockets
-import json
-
-async def test_ws():
-    uri = "ws://localhost:8000/ws"
-    async with websockets.connect(uri) as websocket:
-        # Receive state updates
-        for _ in range(10):
-            message = await websocket.recv()
-            data = json.loads(message)
-            print(f"Time: {data['data']['time']}, Level: {data['data']['tank_level']}")
-        
-        # Send command
-        await websocket.send(json.dumps({"type": "setpoint", "value": 3.0}))
-        
-        # Continue receiving
-        for _ in range(10):
-            message = await websocket.recv()
-            data = json.loads(message)
-            print(f"Time: {data['data']['time']}, Level: {data['data']['tank_level']}")
-
-asyncio.run(test_ws())
-```
-
-Using wscat (command line tool):
+View coverage report:
 ```bash
-npm install -g wscat
-wscat -c ws://localhost:8000/ws
-# Will print state updates every second
-# Type: {"type": "setpoint", "value": 3.0}
-# Press enter to send
+xdg-open htmlcov/index.html
 ```
 
-### Understanding the 1 Hz Timing
-
-Why 1 Hz?
-- SCADA systems typically update at 0.1 to 10 Hz
-- 1 Hz is sufficient for tank level control (slow process)
-- Comfortable for human operators to observe
-- Low bandwidth for WebSocket
-- Easy to achieve without real-time OS
-
-The simulation timestep (dt in C++) is separate from the broadcast rate:
-- C++ simulation may use dt = 0.1s for numerical accuracy
-- API calls simulator.step() which may advance by 1.0s (or 10 × 0.1s steps internally)
-- Broadcast happens after each step, at 1 Hz
-- Clients receive updates at 1 Hz regardless of internal timestep
-
-### CORS Configuration
-
-The CORS middleware allows browser-based frontends to connect:
-- Browsers enforce same-origin policy by default
-- CORS headers tell browser it's safe to allow cross-origin requests
-- Development: allow localhost:3000 (Next.js)
-- Production: update allowed origins to actual frontend domain
-
-### Project Root vs API Directory
-
-Always run the server from the project root, not from inside the api directory:
-
-Correct:
+Run tests in random order (check for test interdependencies):
 ```bash
-cd /home/roger/dev/tank_dynamics
-uvicorn api.main:app --reload
+pytest api/tests/ --random-order
 ```
 
-Incorrect:
+### Test Dependencies
+
+The test suite requires:
 ```bash
-cd /home/roger/dev/tank_dynamics/api
-uvicorn main:app --reload  # Won't find tank_sim package!
+pip install pytest pytest-asyncio pytest-cov pytest-random-order httpx
 ```
 
-The tank_sim package is installed relative to the project root, so PYTHONPATH must include that directory.
+These should be added to a `api/requirements-dev.txt` file for development dependencies.
 
-### Environment Variables
+### Mocking Strategy Rationale
 
-Create a `.env` file in the api directory (copy from .env.example):
-```bash
-cp api/.env.example api/.env
-```
+The tests mock tank_sim rather than using the real C++ library for several important reasons:
 
-FastAPI with python-dotenv will automatically load these variables.
+1. **CI/CD simplicity** - Tests can run in any Python environment without compiling C++
+2. **Speed** - Mock tests run in seconds rather than minutes
+3. **Isolation** - API layer can be tested independently of simulation layer
+4. **Controlled behavior** - Tests can simulate specific edge cases by controlling mock return values
+5. **Cross-platform** - Tests work on any OS without C++ build chain
 
-For production, set environment variables via systemd service file or docker-compose.
+The C++ simulation layer has its own comprehensive test suite (42 tests in Phase 1), so we don't need to retest the physics in the API tests. The API tests focus on verifying that the API layer correctly:
+- Parses requests
+- Validates inputs
+- Calls the appropriate simulation methods
+- Formats responses
+- Handles errors
 
-### Dependencies Installation
+This separation of concerns is good testing practice.
 
-The API depends on the tank_sim package being installed:
+### Brownian Mode Testing Strategy
 
-```bash
-cd /home/roger/dev/tank_dynamics
+Testing Brownian mode requires statistical validation:
 
-# Install tank_sim in development mode
-pip install -e .
+- **Deterministic tests** - Use a fixed random seed to get reproducible behavior for regression testing
+- **Statistical tests** - Verify properties like mean, variance, and bounds over many samples
+- **Visual inspection** - Run the API and observe Brownian behavior manually to ensure it "looks right"
 
-# Install API dependencies
-pip install -r api/requirements.txt
+The tests should verify correctness (stays in bounds, unbiased random walk) without being overly brittle to specific random sequences.
 
-# Or using uv:
-uv pip install -e .
-uv pip install -r api/requirements.txt
-```
+### Documentation Review Process
 
-### Logging
+Before considering Task 18 complete, conduct a documentation review:
 
-FastAPI uses uvicorn's logging:
-- Info level: shows each request
-- Debug level: shows detailed information
-- Set via --log-level flag or LOG_LEVEL env var
+1. **Completeness check** - Every endpoint, parameter, and feature documented
+2. **Accuracy check** - Verify examples work and responses match reality
+3. **Clarity check** - Can a new developer understand and use the API from docs alone?
+4. **Link check** - All references and links work
+5. **Example check** - All example code runs successfully
 
-For simulation-specific logging, add Python logging:
-```python
-import logging
-logger = logging.getLogger(__name__)
-logger.info("Simulation loop started")
-```
+Consider asking someone unfamiliar with the project to attempt using the API following only the documentation as a validation test.
 
-### Common Issues
+---
 
-**ImportError: tank_sim not found**
-- Make sure tank_sim is installed: `pip install -e .`
-- Make sure running from project root, not api directory
-
-**WebSocket connection refused**
-- Server not running: start with uvicorn
-- CORS issue: check allowed origins
-- Firewall blocking port 8000
-
-**Simulation loop not running**
-- Check startup event fired: look for log message
-- Check for exceptions in background task
-- Use `asyncio.create_task()` not `asyncio.run()` in startup event
-
-**Memory leak**
-- Ring buffer should be fixed size (7200 entries)
-- Check that WebSocket connections are properly removed on disconnect
-- Monitor with `ps aux | grep uvicorn`
-
-**Timing drift**
-- asyncio.sleep(1.0) should be sufficient
-- If drift occurs, measure actual elapsed time and adjust sleep
-- For 1 Hz, drift should be negligible over hours
+*Tasks written: 2026-02-09*  
+*Senior Engineer: Claude Sonnet*  
+*Branch: phase4-nextjs-frontend*

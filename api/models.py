@@ -71,11 +71,17 @@ class InletModeCommand(BaseModel):
     """
 
     mode: str = Field(..., description="Inlet mode (either 'constant' or 'brownian')")
-    min_flow: float = Field(
+    min: float = Field(
         0.8, ge=0.0, le=2.0, description="Minimum flow for Brownian mode, default 0.8"
     )
-    max_flow: float = Field(
+    max: float = Field(
         1.2, ge=0.0, le=2.0, description="Maximum flow for Brownian mode, default 1.2"
+    )
+    variance: float = Field(
+        0.05,
+        ge=0.0,
+        le=1.0,
+        description="Step variance for Brownian mode, default 0.05",
     )
 
     @field_validator("mode")
@@ -85,12 +91,12 @@ class InletModeCommand(BaseModel):
             raise ValueError("Mode must be either 'constant' or 'brownian'")
         return v
 
-    @field_validator("max_flow")
+    @field_validator("max")
     @classmethod
     def validate_min_max_flow(cls, v: float, info: ValidationInfo) -> float:
-        min_flow = cast(float, info.data.get("min_flow", 0.8))
-        if v <= min_flow:
-            raise ValueError("max_flow must be greater than min_flow")
+        min_val = cast(float, info.data.get("min", 0.8))
+        if v <= min_val:
+            raise ValueError("max must be greater than min")
         return v
 
 

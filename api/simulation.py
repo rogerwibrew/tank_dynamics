@@ -3,6 +3,8 @@ import logging
 from collections import deque
 from typing import Any
 
+import numpy as np
+
 import tank_sim
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,12 @@ class SimulationManager:
         self.simulator: tank_sim.Simulator | None = None
         self.connections: set = set()
         self.history: deque = deque(maxlen=7200)  # 2 hours at 1 Hz
+        self.inlet_mode: str = "constant"
+        self.inlet_mode_params: dict[str, float] = {
+            "min": 0.8,
+            "max": 1.2,
+            "variance": 0.05,
+        }
 
     def initialize(self):
         """Initialize the simulator with the configuration."""
@@ -99,6 +107,12 @@ class SimulationManager:
             return
 
         try:
+            # Apply Brownian inlet flow if enabled
+            if self.inlet_mode == "brownian":
+                current_inlet_flow = self.simulator.get_inputs()[0]
+                new_inlet_flow = self.apply_brownian_inlet(current_inlet_flow)
+                self.simulator.set_input(0, new_inlet_flow)
+
             self.simulator.step()
         except Exception as e:
             logger.error(f"Error during simulation step: {e}")
@@ -112,6 +126,12 @@ class SimulationManager:
         try:
             self.simulator.reset()
             self.history.clear()
+            self.inlet_mode = "constant"
+            self.inlet_mode_params = {
+                "min": 0.8,
+                "max": 1.2,
+                "variance": 0.05,
+            }
             logger.info("Simulation reset to initial conditions and history cleared")
         except Exception as e:
             logger.error(f"Error resetting simulation: {e}")
@@ -154,18 +174,51 @@ class SimulationManager:
         except Exception as e:
             logger.error(f"Error setting inlet flow: {e}")
 
-    def set_inlet_mode(self, mode: str, min_flow: float, max_flow: float):
+    def apply_brownian_inlet(self, current_flow: float) -> float:
+        """
+        Apply Brownian motion to inlet flow.
+
+        Args:
+            current_flow: Current inlet flow value
+
+        Returns:
+            New inlet flow value after applying Brownian step
+        """
+        # Generate random increment from normal distribution
+        increment = np.random.normal(0.0, self.inlet_mode_params["variance"])
+
+        # Add increment to current flow
+        new_flow = current_flow + increment
+
+        # Clamp to bounds
+        min_flow = self.inlet_mode_params["min"]
+        max_flow = self.inlet_mode_params["max"]
+        new_flow = np.clip(new_flow, min_flow, max_flow)
+
+        return float(new_flow)
+
+    def set_inlet_mode(
+        self, mode: str, min_flow: float, max_flow: float, variance: float = 0.05
+    ):
         """Set inlet flow mode (constant or brownian)."""
         if self.simulator is None or not self.initialized:
             logger.warning("set_inlet_mode called but simulator not initialized")
             return
 
         try:
-            # Store mode parameters for future Brownian implementation
+            # Store mode parameters for Brownian implementation
             self.inlet_mode = mode
-            self.inlet_min_flow = min_flow
-            self.inlet_max_flow = max_flow
-            logger.info(f"Inlet mode set to {mode}")
+            self.inlet_mode_params = {
+                "min": min_flow,
+                "max": max_flow,
+                "variance": variance,
+            }
+            if mode == "brownian":
+                logger.info(
+                    f"Brownian inlet mode enabled: min={min_flow}, max={max_flow}, variance={variance}"
+                )
+            else:
+                logger.info(f"Inlet mode set to {mode}")
         except Exception as e:
             logger.error(f"Error setting inlet mode: {e}")
 

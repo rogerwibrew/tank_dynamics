@@ -64,51 +64,67 @@ Tank Dynamics is a proof-of-concept process simulation and control system. It de
 
 Ubuntu/Debian:
 ```bash
-sudo apt-get install cmake libgsl-dev build-essential
+sudo apt-get install cmake libgsl-dev build-essential python3-pip
 ```
 
 Arch Linux:
 ```bash
-sudo pacman -S cmake gsl base-devel
+sudo pacman -S cmake gsl base-devel python
 ```
 
 macOS:
 ```bash
-brew install cmake gsl
+brew install cmake gsl python
 ```
 
 **Development Tools:**
-- Node.js 18+ (for frontend)
-- Python 3.9+ (for backend)
+- Python 3.10+ (for backend)
 - C++17 capable compiler (GCC 9+, Clang 10+, MSVC 2019+)
+- Node.js 18+ (optional, for frontend in Phase 4)
 
 ### Building the C++ Core
 
 ```bash
 # Configure build system (downloads Eigen, GSL, GoogleTest automatically)
-cmake -B build -S .
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
 # Compile C++ library and tests
-cmake --build build
+cmake --build build --config Release
 
 # Run test suite
 ctest --test-dir build --output-on-failure
 ```
 
-### Running the Complete System
+### Running the FastAPI Backend
 
 ```bash
-# Start backend (requires C++ library built first)
-pip install -e .  # Install Python bindings
-python -m api.main
+# Install Python bindings and API dependencies
+pip install -e .
+pip install -r api/requirements.txt
 
-# In another terminal, start frontend
-cd frontend
-npm install
-npm run dev
+# Development mode (with auto-reload)
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+
+# Production mode (always use 1 worker)
+uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-Then open http://localhost:3000 in your browser.
+The API is now running at `http://localhost:8000`. Access Swagger UI documentation at `http://localhost:8000/docs`.
+
+### Testing the API
+
+```bash
+# Run all API tests
+pytest api/tests/ -v
+
+# Run with coverage
+pytest api/tests/ --cov=api
+
+# Try the interactive examples
+python examples/rest_client.py           # REST API client
+python examples/websocket_client.py      # WebSocket client
+# Or open examples/websocket_client.html in a web browser
+```
 
 ## Project Structure
 
@@ -185,19 +201,32 @@ The controller gains are tunable in real-time:
 - **tau_I** (integral time): Smaller = faster offset correction
 - **tau_D** (derivative time): Larger = more damping of oscillations
 
-## Development Guide
+## Documentation
 
-### Documentation
+### API Documentation
+
+- **[API_REFERENCE.md](docs/API_REFERENCE.md)** - Complete endpoint reference with examples for all 9 REST endpoints and WebSocket interface
+- **[api/README.md](api/README.md)** - Quick start guide, testing, and development tips
+- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Production deployment guide with systemd service, nginx proxy, TLS/SSL setup, and troubleshooting
+
+### Example Code
+
+Located in `examples/` directory:
+
+- **[websocket_client.py](examples/websocket_client.py)** - Python WebSocket client demonstrating real-time state monitoring and command sending
+- **[rest_client.py](examples/rest_client.py)** - Python REST API client showing all endpoint usage patterns
+- **[websocket_client.html](examples/websocket_client.html)** - Self-contained HTML/JavaScript WebSocket client with interactive control panel (works in any browser)
+
+### Development Documentation
 
 **For Developers:**
 - **[Developer Guide](docs/DEVELOPER_GUIDE.md)** - Setup, building, testing, and development workflow
-- **[API Reference](docs/API_REFERENCE.md)** - Complete C++ class documentation with examples
 - **[Architecture Plan](docs/plan.md)** - System design, technology decisions, and phase breakdown
 
 **For Understanding the Project:**
 - **[Process Specifications](docs/specs.md)** - Feature requirements and acceptance criteria
 - **[Tank Dynamics Theory](docs/TankDynamics.md)** - Process physics and control theory
-- **[Detailed Class Specifications](docs/)** - `Model Class.md`, `PID Controller Class.md`, `Stepper Class.md`, `Simulator Class.md`
+- **[Detailed Class Specifications](docs/)** - Tank Model, PID Controller, Stepper, and Simulator classes
 
 **For Current Work:**
 - **[Project Status](docs/STATUS.md)** - Detailed progress report and completed work
@@ -217,27 +246,33 @@ This project uses a structured AI-assisted workflow:
 
 See `CLAUDE.md` for detailed role definitions and boundaries.
 
-### Current Phase: Phase 3 - FastAPI Backend [COMPLETE]
+### Current Phase: Phase 3 - FastAPI Backend [✅ COMPLETE]
 
-**Progress:** 100% complete - All phases now ready for merge
+**Progress:** 100% complete - All phases now ready for merge (2026-02-09)
 - ✅ Phase 1: C++ Simulation Core (9 tasks, 42 C++ tests passing)
 - ✅ Phase 2: Python Bindings (3 tasks, 28 Python tests passing)
-- ✅ Phase 3: FastAPI Backend (3 tasks, complete with all 70+ tests passing)
+- ✅ Phase 3: FastAPI Backend (4 tasks, complete with all 70+ tests passing)
 
 **Phase 3 Deliverables:**
 - ✅ Task 13: FastAPI project structure with Pydantic models and core endpoints
 - ✅ Task 14: Simulation loop (1 Hz) and WebSocket real-time broadcasting
 - ✅ Task 15: Ring buffer history (7200 entries, ~2 hours) and REST endpoints
-- ✅ Full integration with C++ simulation backend via pybind11
+- ✅ Task 16: Comprehensive API Testing Suite (conftest, endpoints, WebSocket, concurrency, Brownian)
+- ✅ Task 17: Brownian Inlet Flow Mode (stochastic disturbance simulation)
+- ✅ Task 18: API Documentation and Production Deployment Guide
 
 **Fully Operational System:**
 - Python bindings fully functional and tested (28 tests)
 - C++ simulation core production-ready (42 tests)
 - FastAPI server with WebSocket real-time updates at 1 Hz
 - REST endpoints for configuration, control, and history queries
-- Ring buffer for persistent historical data storage
+- Ring buffer for persistent historical data storage (7200 entries, ~2 hours)
+- Comprehensive API test suite (70+ tests)
+- Brownian inlet flow mode for disturbance testing
+- Complete deployment documentation with systemd service, nginx proxy, and TLS setup
 - CORS enabled for frontend integration
 - Comprehensive logging for debugging
+- Interactive example clients (Python WebSocket, Python REST, HTML WebSocket)
 
 ### Running Tests
 
@@ -265,282 +300,45 @@ Works with VSCode (clangd extension), Neovim (nvim-lspconfig), Emacs (eglot), et
 
 ## API Reference
 
-### Running the API Server
+**Complete API documentation with examples:**
+- **[API_REFERENCE.md](docs/API_REFERENCE.md)** - Comprehensive endpoint reference with request/response examples
+- **[api/README.md](api/README.md)** - Quick start guide and development tips
+- **[Interactive Swagger UI](http://localhost:8000/docs)** - Available when API server is running
 
+### Quick API Examples
+
+**Health Check:**
 ```bash
-# From project root
-pip install -e .                          # Install Python bindings
-pip install -r api/requirements.txt       # Install API dependencies
-
-# Development mode (with auto-reload)
-uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
-
-# Production mode (single worker, no reload)
-uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 1
+curl http://localhost:8000/api/health
 ```
 
-**Important:** Always use 1 worker for production to ensure a single simulation instance.
-
-API documentation available at http://localhost:8000/docs (Swagger UI)
-
-### Health Check: `GET /api/health`
-
-Simple status check for monitoring and deployment health checks.
-
-**Response:**
-```json
-{"status": "ok"}
+**Get Current State:**
+```bash
+curl http://localhost:8000/api/state
 ```
 
-### Configuration: `GET /api/config`
-
-Get current simulation configuration including tank parameters, PID gains, and history capacity.
-
-**Response:**
-```json
-{
-  "tank_height": 5.0,
-  "tank_area": 120.0,
-  "valve_coefficient": 1.2649,
-  "initial_level": 2.5,
-  "initial_setpoint": 2.5,
-  "pid_gains": {
-    "Kc": 1.0,
-    "tau_I": 10.0,
-    "tau_D": 5.0
-  },
-  "timestep": 1.0,
-  "history_capacity": 7200,
-  "history_size": 245
-}
+**Set Setpoint:**
+```bash
+curl -X POST http://localhost:8000/api/setpoint \
+  -H "Content-Type: application/json" \
+  -d '{"value": 3.5}'
 ```
 
-### Reset: `POST /api/reset`
-
-Reset the simulation to initial steady-state conditions and clear history buffer.
-
-**Response:**
-```json
-{"message": "Simulation reset successfully"}
+**Update PID Gains:**
+```bash
+curl -X POST http://localhost:8000/api/pid \
+  -H "Content-Type: application/json" \
+  -d '{"Kc": 1.5, "tau_I": 8.0, "tau_D": 2.0}'
 ```
 
-### Set Setpoint: `POST /api/setpoint`
-
-Change the tank level setpoint (target level for PID controller).
-
-**Request:**
-```json
-{"value": 3.5}
+**Get Historical Data:**
+```bash
+curl 'http://localhost:8000/api/history?duration=3600'
 ```
 
-**Constraints:** 0.0 ≤ value ≤ 5.0 (meters)
+For complete examples, see [examples/](examples/) directory.
 
-**Response:**
-```json
-{"message": "Setpoint updated", "value": 3.5}
-```
 
-### Tune PID: `POST /api/pid`
-
-Update PID controller gains dynamically (bumpless transfer).
-
-**Request:**
-```json
-{
-  "Kc": 1.5,
-  "tau_I": 8.0,
-  "tau_D": 2.0
-}
-```
-
-**Constraints:**
-- `Kc`: proportional gain (no restriction, can be negative for reverse-acting control)
-- `tau_I`: integral time (≥ 0, 0 disables integral action)
-- `tau_D`: derivative time (≥ 0, 0 disables derivative action)
-
-**Response:**
-```json
-{
-  "message": "PID gains updated",
-  "gains": {"Kc": 1.5, "tau_I": 8.0, "tau_D": 2.0}
-}
-```
-
-### Set Inlet Flow: `POST /api/inlet_flow`
-
-Change the inlet flow rate manually (when in constant mode).
-
-**Request:**
-```json
-{"value": 1.2}
-```
-
-**Constraints:** 0.0 ≤ value ≤ 2.0 (m³/s)
-
-**Response:**
-```json
-{"message": "Inlet flow updated", "value": 1.2}
-```
-
-### Set Inlet Mode: `POST /api/inlet_mode`
-
-Switch inlet between constant and Brownian (random walk) modes.
-
-**Request:**
-```json
-{
-  "mode": "brownian",
-  "min_flow": 0.8,
-  "max_flow": 1.2
-}
-```
-
-**Constraints:**
-- `mode`: "constant" or "brownian"
-- `min_flow`: ≥ 0.0, ≤ 2.0
-- `max_flow`: > min_flow, ≤ 2.0
-
-**Response:**
-```json
-{
-  "message": "Inlet mode updated",
-  "mode": "brownian",
-  "min_flow": 0.8,
-  "max_flow": 1.2
-}
-```
-
-### History: `GET /api/history?duration=3600`
-
-Retrieve historical data points from the ring buffer.
-
-**Query Parameters:**
-- `duration`: seconds of history to return (1-7200, default 3600 = 1 hour)
-
-**Response:** Array of state snapshots in chronological order (oldest first)
-```json
-[
-  {
-    "time": 0.0,
-    "tank_level": 2.5,
-    "setpoint": 2.5,
-    "inlet_flow": 1.0,
-    "outlet_flow": 1.0,
-    "valve_position": 0.5,
-    "error": 0.0,
-    "controller_output": 0.5
-  },
-  {
-    "time": 1.0,
-    "tank_level": 2.501,
-    "setpoint": 2.5,
-    "inlet_flow": 1.0,
-    "outlet_flow": 0.999,
-    "valve_position": 0.501,
-    "error": -0.001,
-    "controller_output": 0.499
-  }
-]
-```
-
-### WebSocket: `WS /ws`
-
-Real-time bidirectional connection for continuous state updates and command input.
-
-**Server → Client (State Updates - every 1 second):**
-```json
-{
-  "type": "state",
-  "data": {
-    "time": 1234.5,
-    "tank_level": 2.5,
-    "setpoint": 3.0,
-    "inlet_flow": 1.0,
-    "outlet_flow": 1.0,
-    "valve_position": 0.5,
-    "error": -0.5,
-    "controller_output": 0.48
-  }
-}
-```
-
-**Server → Client (Error Messages):**
-```json
-{
-  "type": "error",
-  "message": "Invalid JSON format"
-}
-```
-
-**Client → Server (Control Commands):**
-```json
-{"type": "setpoint", "value": 3.0}
-{"type": "pid", "Kc": 1.0, "tau_I": 10.0, "tau_D": 0.0}
-{"type": "inlet_flow", "value": 1.2}
-{"type": "inlet_mode", "mode": "brownian", "min": 0.8, "max": 1.2}
-```
-
-#### WebSocket Connection Example (Python)
-
-```python
-import asyncio
-import json
-import websockets
-
-async def test_websocket():
-    uri = "ws://localhost:8000/ws"
-    async with websockets.connect(uri) as websocket:
-        # Receive state updates for 10 seconds
-        for _ in range(10):
-            message = await websocket.recv()
-            data = json.loads(message)
-            print(f"Time: {data['data']['time']}, Level: {data['data']['tank_level']:.2f}m")
-        
-        # Send a setpoint change
-        await websocket.send(json.dumps({"type": "setpoint", "value": 3.5}))
-        
-        # Continue receiving
-        for _ in range(10):
-            message = await websocket.recv()
-            data = json.loads(message)
-            print(f"Time: {data['data']['time']}, Level: {data['data']['tank_level']:.2f}m")
-
-asyncio.run(test_websocket())
-```
-
-#### WebSocket Connection Example (JavaScript/Node.js)
-
-```javascript
-const WebSocket = require('ws');
-
-const ws = new WebSocket('ws://localhost:8000/ws');
-
-ws.on('open', () => {
-  console.log('Connected to server');
-  
-  // Send a setpoint command after 5 seconds
-  setTimeout(() => {
-    ws.send(JSON.stringify({type: 'setpoint', value: 3.0}));
-  }, 5000);
-});
-
-ws.on('message', (data) => {
-  const message = JSON.parse(data);
-  if (message.type === 'state') {
-    console.log(`Level: ${message.data.tank_level.toFixed(2)}m, Setpoint: ${message.data.setpoint.toFixed(2)}m`);
-  } else if (message.type === 'error') {
-    console.error(`Error: ${message.message}`);
-  }
-});
-
-ws.on('error', (err) => {
-  console.error('WebSocket error:', err);
-});
-
-ws.on('close', () => {
-  console.log('Disconnected from server');
-});
-```
 
 ## Process Parameters
 
@@ -591,11 +389,36 @@ If backend isn't running, start it:
 python -m api.main
 ```
 
+## Testing
+
+### Running Tests
+
+```bash
+# C++ unit tests
+cmake --build build --config Release
+ctest --test-dir build --output-on-failure
+
+# Python API tests
+pytest api/tests/ -v
+
+# With coverage report
+pytest api/tests/ --cov=api --cov-report=html
+```
+
+**Test Coverage:**
+- C++ simulation core: 42 tests
+- Python bindings: 28 tests
+- FastAPI endpoints: 70+ tests
+- WebSocket integration: Full coverage
+- Brownian inlet mode: Complete test suite
+
 ## References
 
+- **Complete API Reference**: See `docs/API_REFERENCE.md`
+- **Deployment Guide**: See `docs/DEPLOYMENT.md`
 - **Tank Dynamics Theory**: See `docs/TankDynamics.md`
 - **Tennessee Eastman Process**: See `docs/Tennessee_Eastman_Process_Equations.md`
-- **Complete Architecture Plan**: See `docs/plan.md`
+- **Architecture Plan**: See `docs/plan.md`
 - **Next Implementation Tasks**: See `docs/next.md`
 
 ## License
@@ -613,6 +436,16 @@ Follow the workflow defined in `CLAUDE.md` when contributing:
 
 ---
 
-**Last Updated:** 2026-02-09
-**Current Status:** Phase 3 Complete - All Phases Ready for Merge
-**Next Phase:** Phase 4 - Next.js Frontend (can begin immediately)
+**Last Updated:** 2026-02-09 (Phase 3 Complete)
+**Current Status:** Phase 3 Complete - All 3 phases fully operational and documented
+**Next Phase:** Phase 4 - Next.js Frontend (ready to begin)
+
+**Phase 3 Completion Summary:**
+- ✅ FastAPI server with WebSocket real-time updates (1 Hz)
+- ✅ 9 REST endpoints for simulation control and monitoring
+- ✅ Ring buffer history (7200 entries, ~2 hours)
+- ✅ Brownian inlet flow mode for disturbance testing
+- ✅ 70+ comprehensive API tests
+- ✅ Complete API documentation with examples
+- ✅ Production deployment guide (systemd, nginx, TLS)
+- ✅ Interactive example clients (Python & HTML/JS)
