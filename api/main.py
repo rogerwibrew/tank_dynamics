@@ -88,18 +88,22 @@ async def get_config():
             )
 
         config = simulation_manager.config
+        model_params = config.model_params
+        controller = config.controllers[0]
+        gains = controller.gains
+
         return {
-            "tank_height": config.tank_height,
-            "tank_area": config.tank_area,
-            "valve_coefficient": config.valve_coefficient,
-            "initial_level": config.initial_level,
-            "initial_setpoint": config.initial_setpoint,
+            "tank_height": model_params.max_height,
+            "tank_area": model_params.area,
+            "valve_coefficient": model_params.k_v,
+            "initial_level": config.initial_state[0],
+            "initial_setpoint": controller.initial_setpoint,
             "pid_gains": {
-                "Kc": config.pid_gains.Kc,
-                "tau_I": config.pid_gains.tau_I,
-                "tau_D": config.pid_gains.tau_D,
+                "Kc": gains.Kc,
+                "tau_I": gains.tau_I,
+                "tau_D": gains.tau_D,
             },
-            "timestep": config.timestep,
+            "timestep": config.dt,
         }
     except Exception as e:
         logger.error(f"Error getting config: {e}")

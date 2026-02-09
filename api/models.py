@@ -40,7 +40,8 @@ class PIDTuningCommand(BaseModel):
     """
 
     Kc: float = Field(
-        ..., ge=0.0, description="Proportional gain, must be non-negative"
+        ...,
+        description="Proportional gain (can be negative for reverse-acting control)",
     )
     tau_I: float = Field(
         ...,
