@@ -206,7 +206,7 @@ A Brownian random walk is a stochastic process where the value changes by small 
 - Start at current inlet_flow value
 - Each simulation step (1 Hz), add a random increment drawn from a normal distribution
 - The increment has mean 0 and variance σ² (configurable)
-- Clamp the resulting flow to [min_flow, max_flow] bounds to prevent unrealistic extremes
+- Clamp the resulting flow to [min, max] bounds to prevent unrealistic extremes
 
 This creates a smooth, wandering inlet flow that mimics real disturbances like pump variability, upstream process changes, or measurement noise.
 

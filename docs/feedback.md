@@ -184,7 +184,7 @@ This is professional-grade error handling. Well done.
 **Positive observation:** The Pydantic models demonstrate excellent practices:
 - Clear field descriptions for auto-generated docs
 - Appropriate validation constraints (ge, le)
-- Custom validators for complex rules (min_flow < max_flow)
+- Custom validators for complex rules (min < max)
 - Consistent naming conventions
 - Type hints throughout
 
@@ -349,7 +349,7 @@ This level of documentation is rare and extremely valuable. Future developers (i
 1. **Implement Brownian inlet mode** (4-8 hours)
    - Add random walk to simulation loop
    - Use numpy.random.normal for Gaussian steps
-   - Clamp to min_flow/max_flow bounds
+   - Clamp to min/max bounds
    - Test that PID can reject disturbances
 
 2. **Add authentication for production** (8-16 hours)

@@ -418,23 +418,26 @@ Switch inlet between constant (manual) and Brownian (random walk) modes.
 ```json
 {
   "mode": "brownian",
-  "min_flow": 0.8,
-  "max_flow": 1.2
+  "min": 0.8,
+  "max": 1.2,
+  "variance": 0.05
 }
 ```
 
 **Parameters:**
 - `mode`: string, must be "constant" or "brownian"
-- `min_flow`: float, 0.0 ≤ min_flow ≤ 2.0
-- `max_flow`: float, min_flow < max_flow ≤ 2.0
+- `min`: float, 0.0 ≤ min ≤ 2.0 (default: 0.8)
+- `max`: float, min < max ≤ 2.0 (default: 1.2)
+- `variance`: float, 0.0 ≤ variance ≤ 1.0 (default: 0.05, step variance for Brownian mode)
 
 **Response:**
 ```json
 {
   "message": "Inlet mode updated",
   "mode": "brownian",
-  "min_flow": 0.8,
-  "max_flow": 1.2
+  "min": 0.8,
+  "max": 1.2,
+  "variance": 0.05
 }
 ```
 
@@ -844,15 +847,17 @@ Constraints: `0.0 ≤ value ≤ 2.0`
 ```json
 {
   "mode": "brownian",
-  "min_flow": 0.8,
-  "max_flow": 1.2
+  "min": 0.8,
+  "max": 1.2,
+  "variance": 0.05
 }
 ```
 
 Constraints:
 - `mode`: "constant" or "brownian"
-- `min_flow`: `0.0 ≤ value ≤ 2.0`
-- `max_flow`: `min_flow < value ≤ 2.0`
+- `min`: `0.0 ≤ value ≤ 2.0` (default: 0.8)
+- `max`: `min < value ≤ 2.0` (default: 1.2)
+- `variance`: `0.0 ≤ value ≤ 1.0` (default: 0.05)
 
 ### ConfigResponse
 
