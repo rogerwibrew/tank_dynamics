@@ -217,24 +217,27 @@ This project uses a structured AI-assisted workflow:
 
 See `CLAUDE.md` for detailed role definitions and boundaries.
 
-### Current Phase: Phase 2 - Python Bindings [COMPLETE]
+### Current Phase: Phase 3 - FastAPI Backend [COMPLETE]
 
-**Progress:** 100% complete - All Python bindings tested and production-ready
-- ✅ Phase 1: C++ Simulation Core (12 tasks, 42 C++ tests passing)
+**Progress:** 100% complete - All phases now ready for merge
+- ✅ Phase 1: C++ Simulation Core (9 tasks, 42 C++ tests passing)
 - ✅ Phase 2: Python Bindings (3 tasks, 28 Python tests passing)
-- ⏳ Phase 3: FastAPI Backend (6 tasks, starting next)
+- ✅ Phase 3: FastAPI Backend (3 tasks, complete with all 70+ tests passing)
 
-**Phase 2 Deliverables:**
-- ✅ Task 10: pybind11 module structure with scikit-build-core
-- ✅ Task 11: Complete Simulator class bindings with all methods
-- ✅ Task 12: Comprehensive pytest suite (28 tests, 100% pass rate)
-- ✅ Code review completed with all recommendations implemented
+**Phase 3 Deliverables:**
+- ✅ Task 13: FastAPI project structure with Pydantic models and core endpoints
+- ✅ Task 14: Simulation loop (1 Hz) and WebSocket real-time broadcasting
+- ✅ Task 15: Ring buffer history (7200 entries, ~2 hours) and REST endpoints
+- ✅ Full integration with C++ simulation backend via pybind11
 
-**Ready for deployment:**
-- Python bindings fully functional and tested
-- `import tank_sim` works seamlessly with NumPy integration
-- `tank_sim.create_default_config()` convenience function
-- All 42 C++ tests and 28 Python tests passing
+**Fully Operational System:**
+- Python bindings fully functional and tested (28 tests)
+- C++ simulation core production-ready (42 tests)
+- FastAPI server with WebSocket real-time updates at 1 Hz
+- REST endpoints for configuration, control, and history queries
+- Ring buffer for persistent historical data storage
+- CORS enabled for frontend integration
+- Comprehensive logging for debugging
 
 ### Running Tests
 
@@ -262,41 +265,281 @@ Works with VSCode (clangd extension), Neovim (nvim-lspconfig), Emacs (eglot), et
 
 ## API Reference
 
-### WebSocket Endpoint: `/ws`
+### Running the API Server
 
-Real-time process state updates at 1 Hz.
+```bash
+# From project root
+pip install -e .                          # Install Python bindings
+pip install -r api/requirements.txt       # Install API dependencies
 
-**Server → Client:**
+# Development mode (with auto-reload)
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+
+# Production mode (single worker, no reload)
+uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 1
+```
+
+**Important:** Always use 1 worker for production to ensure a single simulation instance.
+
+API documentation available at http://localhost:8000/docs (Swagger UI)
+
+### Health Check: `GET /api/health`
+
+Simple status check for monitoring and deployment health checks.
+
+**Response:**
+```json
+{"status": "ok"}
+```
+
+### Configuration: `GET /api/config`
+
+Get current simulation configuration including tank parameters, PID gains, and history capacity.
+
+**Response:**
+```json
+{
+  "tank_height": 5.0,
+  "tank_area": 120.0,
+  "valve_coefficient": 1.2649,
+  "initial_level": 2.5,
+  "initial_setpoint": 2.5,
+  "pid_gains": {
+    "Kc": 1.0,
+    "tau_I": 10.0,
+    "tau_D": 5.0
+  },
+  "timestep": 1.0,
+  "history_capacity": 7200,
+  "history_size": 245
+}
+```
+
+### Reset: `POST /api/reset`
+
+Reset the simulation to initial steady-state conditions and clear history buffer.
+
+**Response:**
+```json
+{"message": "Simulation reset successfully"}
+```
+
+### Set Setpoint: `POST /api/setpoint`
+
+Change the tank level setpoint (target level for PID controller).
+
+**Request:**
+```json
+{"value": 3.5}
+```
+
+**Constraints:** 0.0 ≤ value ≤ 5.0 (meters)
+
+**Response:**
+```json
+{"message": "Setpoint updated", "value": 3.5}
+```
+
+### Tune PID: `POST /api/pid`
+
+Update PID controller gains dynamically (bumpless transfer).
+
+**Request:**
+```json
+{
+  "Kc": 1.5,
+  "tau_I": 8.0,
+  "tau_D": 2.0
+}
+```
+
+**Constraints:**
+- `Kc`: proportional gain (no restriction, can be negative for reverse-acting control)
+- `tau_I`: integral time (≥ 0, 0 disables integral action)
+- `tau_D`: derivative time (≥ 0, 0 disables derivative action)
+
+**Response:**
+```json
+{
+  "message": "PID gains updated",
+  "gains": {"Kc": 1.5, "tau_I": 8.0, "tau_D": 2.0}
+}
+```
+
+### Set Inlet Flow: `POST /api/inlet_flow`
+
+Change the inlet flow rate manually (when in constant mode).
+
+**Request:**
+```json
+{"value": 1.2}
+```
+
+**Constraints:** 0.0 ≤ value ≤ 2.0 (m³/s)
+
+**Response:**
+```json
+{"message": "Inlet flow updated", "value": 1.2}
+```
+
+### Set Inlet Mode: `POST /api/inlet_mode`
+
+Switch inlet between constant and Brownian (random walk) modes.
+
+**Request:**
+```json
+{
+  "mode": "brownian",
+  "min_flow": 0.8,
+  "max_flow": 1.2
+}
+```
+
+**Constraints:**
+- `mode`: "constant" or "brownian"
+- `min_flow`: ≥ 0.0, ≤ 2.0
+- `max_flow`: > min_flow, ≤ 2.0
+
+**Response:**
+```json
+{
+  "message": "Inlet mode updated",
+  "mode": "brownian",
+  "min_flow": 0.8,
+  "max_flow": 1.2
+}
+```
+
+### History: `GET /api/history?duration=3600`
+
+Retrieve historical data points from the ring buffer.
+
+**Query Parameters:**
+- `duration`: seconds of history to return (1-7200, default 3600 = 1 hour)
+
+**Response:** Array of state snapshots in chronological order (oldest first)
+```json
+[
+  {
+    "time": 0.0,
+    "tank_level": 2.5,
+    "setpoint": 2.5,
+    "inlet_flow": 1.0,
+    "outlet_flow": 1.0,
+    "valve_position": 0.5,
+    "error": 0.0,
+    "controller_output": 0.5
+  },
+  {
+    "time": 1.0,
+    "tank_level": 2.501,
+    "setpoint": 2.5,
+    "inlet_flow": 1.0,
+    "outlet_flow": 0.999,
+    "valve_position": 0.501,
+    "error": -0.001,
+    "controller_output": 0.499
+  }
+]
+```
+
+### WebSocket: `WS /ws`
+
+Real-time bidirectional connection for continuous state updates and command input.
+
+**Server → Client (State Updates - every 1 second):**
 ```json
 {
   "type": "state",
   "data": {
     "time": 1234.5,
-    "level": 2.5,
+    "tank_level": 2.5,
     "setpoint": 3.0,
     "inlet_flow": 1.0,
     "outlet_flow": 1.0,
     "valve_position": 0.5,
-    "error": -0.5
+    "error": -0.5,
+    "controller_output": 0.48
   }
 }
 ```
 
-**Client → Server (Examples):**
+**Server → Client (Error Messages):**
+```json
+{
+  "type": "error",
+  "message": "Invalid JSON format"
+}
+```
+
+**Client → Server (Control Commands):**
 ```json
 {"type": "setpoint", "value": 3.0}
 {"type": "pid", "Kc": 1.0, "tau_I": 10.0, "tau_D": 0.0}
 {"type": "inlet_flow", "value": 1.2}
 {"type": "inlet_mode", "mode": "brownian", "min": 0.8, "max": 1.2}
-{"type": "reset"}
 ```
 
-### REST Endpoints
+#### WebSocket Connection Example (Python)
 
+```python
+import asyncio
+import json
+import websockets
+
+async def test_websocket():
+    uri = "ws://localhost:8000/ws"
+    async with websockets.connect(uri) as websocket:
+        # Receive state updates for 10 seconds
+        for _ in range(10):
+            message = await websocket.recv()
+            data = json.loads(message)
+            print(f"Time: {data['data']['time']}, Level: {data['data']['tank_level']:.2f}m")
+        
+        # Send a setpoint change
+        await websocket.send(json.dumps({"type": "setpoint", "value": 3.5}))
+        
+        # Continue receiving
+        for _ in range(10):
+            message = await websocket.recv()
+            data = json.loads(message)
+            print(f"Time: {data['data']['time']}, Level: {data['data']['tank_level']:.2f}m")
+
+asyncio.run(test_websocket())
 ```
-GET /api/history?duration=3600     # Last hour of data (default: last hour)
-GET /api/config                    # Current simulation configuration
-POST /api/reset                    # Reset to initial conditions
+
+#### WebSocket Connection Example (JavaScript/Node.js)
+
+```javascript
+const WebSocket = require('ws');
+
+const ws = new WebSocket('ws://localhost:8000/ws');
+
+ws.on('open', () => {
+  console.log('Connected to server');
+  
+  // Send a setpoint command after 5 seconds
+  setTimeout(() => {
+    ws.send(JSON.stringify({type: 'setpoint', value: 3.0}));
+  }, 5000);
+});
+
+ws.on('message', (data) => {
+  const message = JSON.parse(data);
+  if (message.type === 'state') {
+    console.log(`Level: ${message.data.tank_level.toFixed(2)}m, Setpoint: ${message.data.setpoint.toFixed(2)}m`);
+  } else if (message.type === 'error') {
+    console.error(`Error: ${message.message}`);
+  }
+});
+
+ws.on('error', (err) => {
+  console.error('WebSocket error:', err);
+});
+
+ws.on('close', () => {
+  console.log('Disconnected from server');
+});
 ```
 
 ## Process Parameters
@@ -370,6 +613,6 @@ Follow the workflow defined in `CLAUDE.md` when contributing:
 
 ---
 
-**Last Updated:** 2026-01-28
-**Current Status:** Phase 1 In Progress
-**Next Review:** After Task 4 completion
+**Last Updated:** 2026-02-09
+**Current Status:** Phase 3 Complete - All Phases Ready for Merge
+**Next Phase:** Phase 4 - Next.js Frontend (can begin immediately)
