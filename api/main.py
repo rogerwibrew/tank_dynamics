@@ -261,7 +261,7 @@ async def websocket_endpoint(websocket: WebSocket):
     - {"type": "setpoint", "value": <float>}
     - {"type": "pid", "Kc": <float>, "tau_I": <float>, "tau_D": <float>}
     - {"type": "inlet_flow", "value": <float>}
-    - {"type": "inlet_mode", "mode": <str>, "min_flow": <float>, "max_flow": <float>}
+    - {"type": "inlet_mode", "mode": <str>, "min": <float>, "max": <float>, "variance": <float>}
     """
     await websocket.accept()
     logger.info("Client connected to WebSocket")
