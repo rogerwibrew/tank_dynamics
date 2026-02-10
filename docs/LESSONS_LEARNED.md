@@ -29,6 +29,8 @@ This document captures lessons learned from building a small proof-of-concept si
 
 **Root cause:** Senior Engineer role was optimized for Sonnet-level execution, not Haiku/local LLM constraints.
 
+**Additional discovery:** During project initialization, interactive prompts can introduce unnecessary complexity (React Compiler, custom aliases) that isn't documented in tasks, causing confusion.
+
 ### The Pattern Recognition
 
 Successful tasks (Phases 1-3) had natural granularity:
@@ -158,6 +160,21 @@ Failed tasks (initial Phase 4) tried to do too much:
 | Decisions required | Many unclear choices | Clear path forward |
 | Context needed | Multiple frameworks | Single concept |
 | Verification | Complex multi-step | One command |
+
+### Interactive Prompts and Default Choices
+
+**Problem:** CLI tools (create-next-app, create-react-app, etc.) often have interactive prompts for experimental or optional features. When tasks don't document what to choose, engineers must make decisions without context.
+
+**Solution:** In task descriptions, explicitly state answers for all interactive prompts:
+
+```markdown
+When prompted during npx create-next-app:
+- React Compiler: No (experimental, not needed for 1 Hz updates)
+- Import alias: No (keep default @/* convention)
+- Turbopack: No (not stable yet, stick with webpack)
+```
+
+**Principle:** Default to stable, well-documented options. Avoid experimental features unless they solve a specific problem. Local LLMs struggle with "cutting edge" features that have limited training data.
 
 ### Information Structure Per Task
 
