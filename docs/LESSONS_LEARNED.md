@@ -14,6 +14,136 @@ This document captures lessons learned from building a small proof-of-concept si
 
 **New Key Takeaway (2026-02-10):** Task granularity matters enormously when working with local LLMs or smaller models. Tasks that seem "simple" to Sonnet/Opus can be insurmountably complex for Haiku or local models. Breaking work into micro-tasks (1-2 files, 15-30 minutes) dramatically improves success rate.
 
+**Critical Key Takeaway (2026-02-10):** LLMs working from memory (knowledge cutoff) will produce outdated task specifications for rapidly evolving frameworks. Always query authoritative documentation sources (Context7, official docs) when creating tasks involving external frameworks, especially for project initialization and configuration steps.
+
+---
+
+## 0. Framework Documentation: Query, Don't Assume
+
+### The Problem We Encountered
+
+**What happened:** Phase 4 tasks specified expected output for `create-next-app` based on LLM training data:
+- Expected: `tailwind.config.ts` created by default
+- Expected: `eslintrc.json` configuration format
+- Expected: `next.config.js` (JavaScript config)
+
+**Actual behavior (Next.js v16 + Tailwind v4):**
+- Tailwind CSS **not installed by default** by create-next-app
+- ESLint uses new flat config format (`eslint.config.mjs`)
+- Next.js uses TypeScript config by default (`next.config.ts`)
+
+**Impact:**
+- Engineer followed verification steps and found mismatches
+- Had to escalate back to Senior Engineer for corrections
+- Wasted time debugging "why doesn't my setup match docs?"
+- Required complete task rewrite for 6+ tasks
+
+**Root cause:** Senior Engineer (Sonnet) relied on training data instead of querying current documentation via Context7 MCP.
+
+### The Lesson
+
+**For framework-dependent tasks:**
+
+1. **Always query documentation first** before writing tasks
+   - Use Context7 MCP for framework docs (Next.js, React, Tailwind, etc.)
+   - Check actual version being used
+   - Verify project structure, configuration files, CLI flags
+
+2. **Especially critical for:**
+   - Project initialization (`create-*` commands)
+   - Configuration file formats and locations
+   - Default dependencies and what's included out-of-box
+   - Breaking changes between major versions
+   - Installation and setup procedures
+
+3. **High-risk frameworks** (update frequently):
+   - Next.js (App Router vs Pages Router, Turbopack, etc.)
+   - Tailwind CSS (v3 vs v4 configuration changes)
+   - React (Compiler, Server Components, etc.)
+   - Vite, Vue, Angular, etc.
+
+4. **Verification commands must match reality:**
+   - Don't specify "you should see X files" unless verified
+   - Don't assume defaults haven't changed
+   - Don't trust memory for configuration syntax
+
+### Specific Recommendations
+
+**When writing tasks involving external frameworks:**
+
+```markdown
+## Task Xa: Initialize [Framework] Project
+
+**BEFORE writing this task, Senior Engineer must:**
+1. Query Context7: "[Framework] latest version installation setup"
+2. Query Context7: "[Framework] create command default project structure"
+3. Query Context7: "[Framework] configuration files and format"
+4. Verify actual CLI flags and their current behavior
+5. Document the framework version number in task
+
+**In the task specification:**
+- State exact framework version (e.g., "Next.js 16.1.5")
+- List ONLY files that are actually created
+- Note what is NOT included by default
+- Provide actual verification command output (if available)
+```
+
+**Example query sequence for Next.js project:**
+```
+1. resolve-library-id: "next.js"
+2. query-docs: "create-next-app default files generated structure"
+3. query-docs: "next.js latest version configuration format"
+4. query-docs: "tailwind css installation with next.js"
+```
+
+**Example: Recharts dependency version mismatch**
+
+During Phase 4 implementation, Task 19b originally specified "recharts (2.x)" but `npm install recharts` installed v3.7.0 by default. This caused a secondary issue:
+
+**Problem discovered:**
+- Task specified: "recharts version 2.x"
+- Actual installed: recharts 3.7.0
+- Breaking changes: CartesianGrid requires explicit `xAxisId`/`yAxisId` props in v3
+
+**Resolution:**
+1. Queried Context7: `/recharts/recharts` library documentation
+2. Reviewed [Recharts 3.0 migration guide](https://github.com/recharts/recharts/wiki/3.0-migration-guide)
+3. Updated Task 19b to specify "recharts (^3.7.0)"
+4. Added migration notes to Task 25 (future Recharts usage)
+5. Documented breaking changes: CartesianGrid axis IDs, new hooks, state management rewrite
+
+**Lesson:** Always query documentation for **dependency versions** too, not just project initialization. Even within a single framework ecosystem, major version changes can introduce breaking changes that affect task specifications.
+
+**For the Engineer executing tasks:**
+
+If task verification doesn't match reality:
+1. **Don't assume you made a mistake** - framework may have changed
+2. **Escalate with specifics:** "Expected X, got Y, here's the diff"
+3. **Request doc query:** "Can you check current [framework] docs?"
+
+### Impact Assessment
+
+**Without doc queries:**
+- ❌ 6 tasks needed rewriting
+- ❌ ~2 hours wasted on mismatch debugging
+- ❌ Engineer loses confidence in task accuracy
+- ❌ Risk of building on wrong assumptions
+
+**With doc queries:**
+- ✅ Tasks match actual framework behavior
+- ✅ Verification steps work first try
+- ✅ Engineer can proceed with confidence
+- ✅ Catches breaking changes between versions
+
+### Tools Required
+
+**Senior Engineer must have access to:**
+- Context7 MCP (`resolve-library-id`, `query-docs`)
+- Ability to query before writing tasks
+- Framework version detection if available
+
+**Fallback:** If Context7 unavailable, explicitly mark tasks as "unverified" and instruct Engineer to verify first step and escalate if mismatch.
+
 ---
 
 ## 11. Task Granularity: Local LLM Success Factors
@@ -1115,38 +1245,46 @@ def test_performance():
 
 ### For Scaling to Larger Simulations
 
-#### 0. Task Granularity (NEW)
+#### 0. Framework Documentation (NEW - CRITICAL)
+- ✅ **Query docs before writing tasks** - Use Context7 MCP, don't rely on memory
+- ✅ **Verify framework versions** - State exact versions in tasks (e.g., "Next.js 16.1.5")
+- ✅ **Check project initialization** - Verify what's created by default, what's not
+- ✅ **Validate configuration formats** - File names, syntax, and structure change between versions
+- ✅ **Test verification commands** - Don't promise output you haven't verified
+- ⚠️ **High-risk frameworks** - Next.js, React, Tailwind, Vue, Angular (update frequently)
+
+#### 1. Task Granularity (NEW)
 - ✅ **Break tasks into micro-steps** - 1-2 files, 15-30 minutes per task
 - ✅ **Provide context, not code** - Links to docs, search keywords
 - ✅ **Include escalation hints** - When to ask for help
 - ✅ **Simple verification** - One command to test
 - ✅ **Optimize for local LLMs** - Smaller models need smaller tasks
 
-#### 1. Architecture
+#### 2. Architecture
 - ✅ **Use dependency injection** - Test layers independently
 - ✅ **Define clean interfaces** - Physics, orchestration, API are separate
 - ✅ **Avoid singletons** - Support multiple simulations
 - ✅ **Support horizontal scaling** - Stateless API design
 
-#### 2. Testing
+#### 3. Testing
 - ✅ **Mock early and often** - Don't depend on compilation for API tests
 - ✅ **Multi-level test strategy** - Unit, integration, E2E, performance
 - ✅ **Test cleanup explicitly** - Memory leaks caught early
 - ✅ **Test error paths** - Not just happy paths
 
-#### 3. API Design
+#### 4. API Design
 - ✅ **Provide snapshot + streaming** - Different clients, different needs
 - ✅ **Selective subscriptions** - Don't broadcast everything
 - ✅ **Variable update rates** - Fast control, slow monitoring
 - ✅ **Design before implementing** - OpenAPI spec first
 
-#### 4. Performance
+#### 5. Performance
 - ✅ **Compression for large states** - MessagePack, gzip
 - ✅ **Caching for expensive queries** - State snapshots, computations
 - ✅ **Async for I/O, sync for CPU** - Don't block event loop
 - ✅ **Hierarchical state access** - Subsystems, not everything
 
-#### 5. Operations
+#### 6. Operations
 - ✅ **Structured logging** - JSON logs with correlation IDs
 - ✅ **Different errors for dev/prod** - Helpful vs secure
 - ✅ **Health checks and metrics** - Observability from day one

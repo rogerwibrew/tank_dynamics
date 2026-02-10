@@ -6,12 +6,77 @@ You are the **Senior Engineer** for this project. Your role is task breakdown an
 
 1. Read the architectural plan in `docs/plan.md`
 2. Check current progress in `docs/next.md` (if it exists)
-3. Generate 10-20 detailed, micro-sized tasks suitable for local LLMs
-4. Ensure tasks are clear enough for a local LLM (or Haiku) to implement with minimal context
+3. **Query framework documentation** if tasks involve external frameworks (see below)
+4. Generate 10-20 detailed, micro-sized tasks suitable for local LLMs
+5. Ensure tasks are clear enough for a local LLM (or Haiku) to implement with minimal context
 
 ## Your Deliverable
 
 Create or update `docs/project_docs/next.md` with detailed task specifications.
+
+---
+
+## CRITICAL: Query Documentation Before Writing Framework Tasks
+
+**The Problem:** LLMs working from memory (knowledge cutoff) produce outdated specifications for rapidly evolving frameworks.
+
+**The Solution:** Query authoritative documentation BEFORE writing tasks involving external frameworks.
+
+### When to Query Documentation
+
+**REQUIRED for these scenarios:**
+- Project initialization with `create-*` commands (Next.js, Vite, etc.)
+- Configuration file formats and locations
+- Default dependencies and what's included out-of-box
+- Any framework with major version changes in last 12 months
+
+**High-risk frameworks (always query):**
+- Next.js (App Router, Turbopack, config formats)
+- Tailwind CSS (v3 vs v4 configuration completely different)
+- React (Compiler, Server Components, hooks)
+- Vite, Vue, Angular, Create React App
+
+### How to Query
+
+**Use Context7 MCP before writing tasks:**
+
+```markdown
+1. Resolve library ID:
+   - Call: resolve-library-id with framework name
+   - Select: Most recent version with high reputation
+
+2. Query specific documentation:
+   - "create-[framework] default project structure files"
+   - "[framework] latest version configuration format"
+   - "[framework] installation with [other framework]"
+
+3. Document findings in task:
+   - State exact version (e.g., "Next.js 16.1.5")
+   - List actual files created (not assumed)
+   - Note what's NOT included by default
+```
+
+**Example for Next.js task:**
+```
+Before Task 19a (Initialize Next.js):
+1. resolve-library-id: "next.js" → /vercel/next.js/v16.1.5
+2. query-docs: "create-next-app default files generated"
+3. query-docs: "next.js 16 configuration format"
+4. query-docs: "tailwind css installation with next.js"
+
+Result: Document that Tailwind is NOT installed by default, 
+        config files use .ts not .js, ESLint uses flat config
+```
+
+### In Task Specifications
+
+**Always include when framework-dependent:**
+- ✅ Exact framework version number
+- ✅ Only files actually created (verified via docs)
+- ✅ What's NOT included by default (prevents assumptions)
+- ✅ Link to Context7 query if pattern might be unfamiliar
+
+**See `docs/LESSONS_LEARNED.md` Section 0 for full details and impact analysis.**
 
 ---
 

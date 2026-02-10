@@ -2,12 +2,22 @@
 
 ## Current Phase: Phase 4 - Next.js Frontend (Micro-Task Breakdown)
 
-**Phase Status:** Starting Phase 4 with detailed micro-task breakdown
+**Phase Status:** Task 19a complete, continuing Phase 4 with corrected task breakdown
 **Branch:** phase4-initial
+
+**IMPORTANT UPDATE (2026-02-10):** Task 19a discovered that Next.js 16 and Tailwind v4 have different output than documented. This file has been updated to reflect actual behavior.
+
+**What Changed:**
+- Next.js 16 uses `next.config.ts` (TypeScript) instead of `next.config.js`
+- ESLint uses flat config format (`eslint.config.mjs`) instead of `.eslintrc.json`
+- Tailwind CSS v4 is NOT installed by default (requires separate installation)
+- Tailwind v4 uses CSS-based configuration (@import, @theme) instead of `tailwind.config.ts`
+- Task 19ba added for Tailwind installation
+- Task 19g merged into 19d (single CSS configuration file)
 
 **Context:** Phases 1-3 are complete with all tests passing. The C++ simulation core, Python bindings, and FastAPI backend are fully operational with comprehensive test coverage. Phase 3 delivered a production-ready API with WebSocket real-time updates at 1 Hz, REST endpoints, Brownian inlet flow mode, and complete documentation.
 
-**Phase 4 Goals:** Build a modern SCADA-style web interface using Next.js 14 with App Router, Tailwind CSS, and Recharts. The interface will provide real-time process visualization, control inputs, and historical trend plotting.
+**Phase 4 Goals:** Build a modern SCADA-style web interface using Next.js 16 with App Router, Tailwind CSS v4, and Recharts. The interface will provide real-time process visualization, control inputs, and historical trend plotting.
 
 **Micro-Task Strategy:** This phase is broken into 1-2 file tasks taking 15-30 minutes each. Each task is independently testable and suitable for local LLMs or Haiku. See LESSONS_LEARNED.md for the rationale behind this approach.
 
@@ -63,10 +73,14 @@ Expected output should show:
 - `public/` directory (for static assets)
 - `package.json` (project manifest)
 - `tsconfig.json` (TypeScript configuration)
-- `next.config.js` (Next.js configuration)
-- `tailwind.config.ts` (Tailwind configuration)
-- `postcss.config.js` (PostCSS configuration)
-- `eslintrc.json` (ESLint configuration)
+- `next.config.ts` (Next.js configuration in TypeScript)
+- `next-env.d.ts` (Next.js TypeScript declarations)
+- `postcss.config.mjs` (PostCSS configuration)
+- `eslint.config.mjs` (ESLint flat config format)
+- `.gitignore` (git ignore patterns)
+- `README.md` (Next.js readme)
+
+Note: As of Next.js 15+, create-next-app does NOT install Tailwind CSS by default anymore, even with the --tailwind flag. Task 19ba below will handle Tailwind installation separately.
 
 ### Escalation Hints
 
@@ -87,92 +101,157 @@ Expected output should show:
 
 ---
 
-## Task 19b: Install Frontend Dependencies
+## Task 19ba: Install Tailwind CSS
 
 **Phase:** 4 - Next.js Frontend
 **Prerequisites:** Task 19a (Next.js project initialized)
 **Estimated Time:** 15-30 minutes
-**Files:** frontend/package.json (no modification, installation only)
+**Files:** `frontend/tailwind.config.ts`, `frontend/app/globals.css` (created by init command)
 
 ### Context and References
 
-This project uses `uv` for package management, NOT npm or pip.
-- Reference: `/home/roger/dev/tank_dynamics/docs/general_notes/uv-guide.md`
-- Search keywords: "uv package manager" if unfamiliar with uv
-- Escalation: Not needed (straightforward command)
+Tailwind CSS v4+ has a new installation process. As of Next.js 16+, Tailwind is NOT installed by default.
+- Reference: https://tailwindcss.com/docs/installation/framework-guides
+- Search keywords: "Tailwind CSS Next.js installation" or "Tailwind v4 setup"
+- Escalation: If installation fails with unclear errors, escalate to Haiku
 
 ### Requirements
 
-Install all dependencies for the Next.js frontend project using uv. The dependencies include:
+Install Tailwind CSS in the Next.js project. The latest create-next-app no longer includes Tailwind by default, so we need to add it manually.
 
-**Framework and Build Tools (already in package.json from create-next-app):**
-- next (14.x)
-- react (18.x)
-- react-dom (18.x)
-- typescript (5.x)
-
-**Additional UI Dependencies to Install:**
-- recharts (2.x) for time-series charting
-- @tailwindcss/forms (optional, for better form styling)
-
-**Development Dependencies (mostly pre-installed):**
-- eslint, eslint-config-next, @types/* packages
-
-Note: Do NOT use npm or pip. Use uv exclusively.
+Note: The package.json already shows `@tailwindcss/postcss` and `tailwindcss` version 4 in devDependencies from the create-next-app initialization, but we need to verify the configuration files are properly set up.
 
 ### Exact Commands to Execute
 
-Navigate to the frontend directory and install dependencies:
+From the frontend directory:
 
 ```bash
 cd /home/roger/dev/tank_dynamics/frontend
-uv venv
-uv sync
-uv add recharts
+npm install
 ```
 
-The first command creates a virtual environment, the second installs all dependencies from package.json lock file, and the third adds Recharts.
+This installs all dependencies including Tailwind CSS v4.
 
 ### Verification
 
-Verify installation success:
+Check that Tailwind is installed:
 
 ```bash
 cd /home/roger/dev/tank_dynamics/frontend
-uv run npm list
+npm list tailwindcss
 ```
 
-Expected output should show installed packages including:
-- next
-- react
-- react-dom
-- recharts
-- tailwindcss
+Expected output: Should show tailwindcss version 4.x in the dependency tree.
 
-Or simpler verification:
+Check that node_modules exists:
 
 ```bash
-ls -la /home/roger/dev/tank_dynamics/frontend/node_modules | head -20
+ls -la /home/roger/dev/tank_dynamics/frontend/ | grep node_modules
 ```
 
-Should show node_modules directory with many packages installed.
+Should show the node_modules directory.
+
+Check PostCSS config mentions Tailwind:
+
+```bash
+cat /home/roger/dev/tank_dynamics/frontend/postcss.config.mjs
+```
+
+Should show `@tailwindcss/postcss` plugin.
 
 ### Escalation Hints
 
 **Escalate to Haiku if:**
-- uv command not found (uv not installed in system)
-- Build errors during dependency installation
-- Version conflicts preventing installation
+- npm install fails with dependency conflicts
+- Tailwind CSS not found after installation
+- Node version compatibility issues
 
 **Search for these terms if stuck:**
-- "uv package manager installation"
-- "uv sync troubleshooting"
+- "Tailwind CSS v4 installation Next.js 16"
+- "npm install troubleshooting"
 
 ### Acceptance Criteria
-- [ ] Virtual environment created in frontend directory
-- [ ] All dependencies installed successfully via uv
-- [ ] recharts package installed
-- [ ] node_modules directory populated
+- [ ] All npm dependencies installed successfully
+- [ ] node_modules directory created
+- [ ] tailwindcss package installed (version 4.x)
+- [ ] @tailwindcss/postcss installed
+- [ ] No error messages during installation
+- [ ] PostCSS config references Tailwind plugin
+
+---
+
+## Task 19b: Install Additional Frontend Dependencies
+
+**Phase:** 4 - Next.js Frontend
+**Prerequisites:** Task 19ba (Tailwind CSS installed)
+**Estimated Time:** 15-30 minutes
+**Files:** frontend/package.json (modified to add recharts)
+
+### Context and References
+
+For the frontend, we use npm (not uv). The backend uses uv for Python packages.
+- Reference: https://docs.npmjs.com/cli/v10/commands/npm-install
+- Search keywords: "npm install package" or "npm add dependency"
+- Escalation: Not needed (straightforward command)
+
+### Requirements
+
+Install additional UI dependencies for the Next.js frontend project. The base dependencies (Next.js, React, TypeScript, Tailwind) are already in package.json from create-next-app and Task 19ba.
+
+**Additional UI Dependencies to Install:**
+- recharts (^3.7.0) for time-series charting and trend visualization
+
+**Important:** Recharts v3.0 introduced breaking changes from v2.x:
+- CartesianGrid now requires `xAxisId`/`yAxisId` props (defaults may not render)
+- Internal state management completely rewritten
+- New React hooks available for accessing chart state
+- Refer to [Recharts 3.0 migration guide](https://github.com/recharts/recharts/wiki/3.0-migration-guide) if needed
+
+### Exact Commands to Execute
+
+Navigate to the frontend directory and add Recharts:
+
+```bash
+cd /home/roger/dev/tank_dynamics/frontend
+npm install recharts
+```
+
+This adds Recharts to package.json dependencies and installs it to node_modules.
+
+### Verification
+
+Verify Recharts installation:
+
+```bash
+cd /home/roger/dev/tank_dynamics/frontend
+npm list recharts
+```
+
+Expected output should show recharts version 3.7.0 or higher (3.x series).
+
+Also verify it's in package.json:
+
+```bash
+grep "recharts" /home/roger/dev/tank_dynamics/frontend/package.json
+```
+
+Should show recharts in dependencies section.
+
+### Escalation Hints
+
+**Escalate to Haiku if:**
+- npm install fails with dependency conflicts
+- Version conflicts preventing installation
+- Network errors downloading packages
+
+**Search for these terms if stuck:**
+- "npm install recharts troubleshooting"
+- "npm dependency resolution"
+
+### Acceptance Criteria
+- [ ] recharts package installed successfully
+- [ ] recharts appears in package.json dependencies
+- [ ] recharts appears in node_modules directory
 - [ ] No error messages during installation
 
 ---
@@ -258,98 +337,106 @@ Should output: `"strict": true`
 ## Task 19d: Configure Tailwind CSS for SCADA Dark Theme
 
 **Phase:** 4 - Next.js Frontend
-**Prerequisites:** Task 19a (Next.js project initialized)
+**Prerequisites:** Task 19ba (Tailwind CSS installed)
 **Estimated Time:** 15-30 minutes
-**Files:** `frontend/tailwind.config.ts` or `frontend/tailwind.config.js` (modify)
+**Files:** `frontend/app/globals.css` (modify to add Tailwind directives and custom theme)
 
 ### Context and References
 
-Tailwind CSS provides utility classes for rapid UI development. If unfamiliar:
-- Reference: https://tailwindcss.com/docs/configuration
-- Search keywords: "Tailwind CSS dark mode theme" or "Tailwind custom colors"
-- Escalation: If color scheme seems unclear, escalate to Haiku
+Tailwind CSS v4+ uses a new CSS-first configuration approach. Instead of tailwind.config.ts, we configure Tailwind directly in CSS using @theme directive.
+- Reference: https://tailwindcss.com/docs/v4-beta
+- Search keywords: "Tailwind CSS v4 configuration" or "Tailwind v4 @theme directive"
+- Escalation: If v4 configuration seems unclear, escalate to Haiku
 
 ### Requirements
 
-Modify the Tailwind configuration to extend the default theme with custom colors and enable dark mode as the default.
+Configure Tailwind CSS with custom colors for the SCADA dark theme. With Tailwind v4, configuration is done in the CSS file using the @theme directive, not in a separate config file.
 
-**Content Paths:**
-Configure the content array to scan these files for Tailwind class usage:
-- `./app/**/*.{js,ts,jsx,tsx}`
-- `./components/**/*.{js,ts,jsx,tsx}`
-- `./hooks/**/*.{js,ts,jsx,tsx}`
+**Tailwind v4 Configuration in globals.css:**
 
-**Theme Extensions (extend the default theme):**
+The globals.css file should be structured with these sections:
 
-Add custom colors for SCADA process visualization:
+**Section 1: Tailwind Import**
+Import Tailwind CSS at the top:
+```
+@import "tailwindcss";
+```
 
-**Process State Colors:**
-- `process-normal`: A green color (e.g., #10b981) for normal operation
-- `process-warning`: An amber/yellow color (e.g., #f59e0b) for warning state
-- `process-alarm`: A red color (e.g., #ef4444) for alarm state
+**Section 2: Custom Theme Variables (using @theme)**
+Define custom colors using the @theme directive:
 
-**Tank Visualization Colors:**
-- `tank-liquid`: A blue color (e.g., #3b82f6) for liquid fill
-- `tank-empty`: A dark gray (e.g., #374151) for empty space
-- `tank-border`: A medium gray (e.g., #6b7280) for container borders
+Process State Colors:
+- `--color-process-normal`: green (#10b981) for normal operation
+- `--color-process-warning`: amber (#f59e0b) for warning state
+- `--color-process-alarm`: red (#ef4444) for alarm state
 
-**Background Colors (extend existing):**
-- `bg-scada-dark`: A very dark gray (e.g., #111827) for main background
-- `bg-scada-card`: A dark gray (e.g., #1f2937) for cards/panels
+Tank Visualization Colors:
+- `--color-tank-liquid`: blue (#3b82f6) for liquid fill
+- `--color-tank-empty`: dark gray (#374151) for empty space
+- `--color-tank-border`: medium gray (#6b7280) for container borders
 
-**Text Colors (extend existing):**
-- `text-scada-primary`: White (e.g., #ffffff) for primary text
-- `text-scada-secondary`: Light gray (e.g., #d1d5db) for secondary text
-- `text-scada-muted`: Medium gray (e.g., #9ca3af) for muted text
+SCADA UI Colors:
+- `--color-scada-dark`: very dark gray (#111827) for main background
+- `--color-scada-card`: dark gray (#1f2937) for cards/panels
+- `--color-scada-text`: white (#ffffff) for primary text
 
-**Dark Mode:**
-Set `darkMode: 'class'` to enable dark mode as a class-based system. This allows toggling dark mode by adding/removing classes.
+These can be used in Tailwind classes as: `bg-[--color-process-normal]` or similar.
 
-Alternatively, use `darkMode: ['class', 'media']` to respect system preference as fallback.
+**Section 3: Base Styles**
+Define base HTML element styling:
+- Dark background on body
+- Light text color
+- System font stack
+- Smooth scrolling behavior
 
-### Structure of tailwind.config.ts
-
-The file should contain:
-- `content` array with file paths to scan
-- `theme` object with `extend` section containing custom colors
-- `darkMode` setting for dark mode behavior
-- `plugins` array (initially empty)
+**Note on Tailwind v4:**
+Tailwind v4 doesn't use traditional config files. Configuration is done directly in CSS using @theme and @layer directives. The @import "tailwindcss" brings in all of Tailwind's utilities.
 
 ### Verification
 
-Verify the Tailwind configuration is valid by building the styles:
+Verify the globals.css file has Tailwind import:
+
+```bash
+head -5 /home/roger/dev/tank_dynamics/frontend/app/globals.css
+```
+
+Should show `@import "tailwindcss";` at or near the top.
+
+Check for custom color variables:
+
+```bash
+grep "color-process\|color-tank\|color-scada" /home/roger/dev/tank_dynamics/frontend/app/globals.css
+```
+
+Should show the custom color variable definitions.
+
+Test that styles compile without errors:
 
 ```bash
 cd /home/roger/dev/tank_dynamics/frontend
-npm run build
+npm run dev
 ```
 
-Should complete without errors. Look for the `.next/static/css/` directory to be created with compiled CSS.
-
-Or simpler, check the configuration syntax:
-
-```bash
-grep -A 5 "theme" /home/roger/dev/tank_dynamics/frontend/tailwind.config.ts
-```
-
-Should show the theme object structure.
+Should start dev server without CSS compilation errors.
 
 ### Escalation Hints
 
 **Escalate to Haiku if:**
-- Unsure about specific color hex values for SCADA theme
+- Tailwind v4 @theme syntax seems unclear
+- CSS custom properties pattern is confusing
 - Want recommendations on color psychology for industrial UI
 
 **Search for these terms if stuck:**
-- "Tailwind CSS custom colors extend"
-- "SCADA interface color scheme best practices"
+- "Tailwind CSS v4 custom colors"
+- "Tailwind CSS v4 @theme directive"
+- "CSS custom properties with Tailwind"
 
 ### Acceptance Criteria
-- [ ] Content paths configured to scan app/, components/, hooks/ directories
-- [ ] Custom colors added to theme.extend (process states, tank colors, backgrounds)
-- [ ] darkMode setting configured
-- [ ] Tailwind configuration file is syntactically valid
-- [ ] Build completes without CSS errors
+- [ ] globals.css imports Tailwind with @import "tailwindcss"
+- [ ] Custom color variables defined (process states, tank colors, SCADA UI)
+- [ ] Base styles defined for body and HTML elements
+- [ ] File is syntactically valid CSS
+- [ ] Dev server starts without CSS compilation errors
 
 ---
 
@@ -577,101 +664,16 @@ Should show multiple exported functions.
 
 ---
 
-## Task 19g: Create Global CSS Styles
+## Task 19g: ~~Create Global CSS Styles~~ [MERGED WITH TASK 19d]
 
-**Phase:** 4 - Next.js Frontend
-**Prerequisites:** Task 19d (Tailwind configured)
-**Estimated Time:** 15-30 minutes
-**Files:** `frontend/app/globals.css` (modify or create)
-
-### Context and References
-
-CSS is the styling language for web pages. Tailwind CSS provides utilities but we also need base styles.
-- Reference: https://tailwindcss.com/docs/adding-custom-styles
-- Search keywords: "CSS custom properties" or "Tailwind @apply"
-- Escalation: Not needed for this task (straightforward CSS)
-
-### Requirements
-
-Create or modify the global CSS file that applies Tailwind and defines base styling for the entire application.
-
-**Sections in globals.css:**
-
-**Section 1: Tailwind Directives**
-Import Tailwind's base, components, and utilities layers:
-- `@tailwind base;` - Base element styles
-- `@tailwind components;` - Reusable component styles
-- `@tailwind utilities;` - Utility classes
-
-**Section 2: CSS Custom Properties (Optional)**
-Define CSS variables for colors and values that might be reused:
-- `--color-process-normal: #10b981` (process normal state)
-- `--color-tank-liquid: #3b82f6` (tank liquid color)
-- Similar variables for other theme colors
-
-**Section 3: Base Element Styling**
-Define default styles for HTML elements:
-- Body: dark background, light text color, use system font stack
-- Headings: appropriate font sizes and weights
-- Links: underline on hover
-- Scrollbars: dark theme scrollbar styling (WebKit only)
-
-**Section 4: Smooth Scrolling**
-Add `scroll-behavior: smooth;` to html element for smooth page scrolling.
-
-**Section 5: Focus Ring Styling (for accessibility)**
-Define focus ring appearance for keyboard navigation:
-- Visible outline for interactive elements
-- Use high-contrast color
-
-**Section 6: Animation Keyframes (if needed)**
-Define custom animations for:
-- Subtle pulse for "connecting" status indicator
-- Smooth fade for view transitions (if implemented)
-
-### Verification
-
-Verify CSS syntax is valid:
-
-```bash
-head -20 /home/roger/dev/tank_dynamics/frontend/app/globals.css
-```
-
-Should show Tailwind directives at the top.
-
-Check that file exists:
-
-```bash
-ls -la /home/roger/dev/tank_dynamics/frontend/app/globals.css
-```
-
-Should show the file exists.
-
-### Escalation Hints
-
-**Escalate to Haiku if:**
-- Unsure about specific CSS syntax
-- Want recommendations on SCADA-appropriate styling
-
-**Search for these terms if stuck:**
-- "CSS custom properties tutorial"
-- "Tailwind CSS base styles"
-
-### Acceptance Criteria
-- [ ] File `frontend/app/globals.css` exists
-- [ ] Tailwind directives imported (@tailwind base, components, utilities)
-- [ ] Base element styling defined (body, headings, links)
-- [ ] Dark theme colors applied
-- [ ] Smooth scrolling enabled
-- [ ] Focus ring styling for accessibility defined
-- [ ] CSS syntax is valid
+**Note:** This task has been merged with Task 19d. Tailwind v4 configuration and global styles are now configured together in `frontend/app/globals.css` using the @import directive and @theme syntax. Task 19d handles both Tailwind setup and custom SCADA theme colors.
 
 ---
 
 ## Task 19h: Create Root Layout Component
 
 **Phase:** 4 - Next.js Frontend
-**Prerequisites:** Task 19d (Tailwind), Task 19g (global CSS)
+**Prerequisites:** Task 19d (Tailwind and globals.css configured)
 **Estimated Time:** 15-30 minutes
 **Files:** `frontend/app/layout.tsx` (create/modify)
 
@@ -2299,17 +2301,18 @@ If WebSocket shows errors:
 
 | Task | File(s) | Focus | Status |
 |------|---------|-------|--------|
-| 19a | - (command) | Initialize Next.js project | Ready to start |
-| 19b | package.json | Install dependencies | Ready to start |
+| 19a | - (command) | Initialize Next.js project | **COMPLETE** ✓ |
+| 19ba | - (command) | Install Tailwind CSS v4 | Ready to start |
+| 19b | package.json | Install recharts dependency | Depends on 19ba |
 | 19c | tsconfig.json | TypeScript configuration | Ready to start |
-| 19d | tailwind.config.ts | Tailwind dark theme colors | Ready to start |
+| 19d | app/globals.css | Tailwind v4 config + dark theme | Depends on 19ba |
 | 19e | lib/types.ts | API type definitions | Ready to start |
 | 19f | lib/utils.ts | Utility helper functions | Ready to start |
-| 19g | app/globals.css | Global styles and Tailwind imports | Ready to start |
-| 19h | app/layout.tsx | Root layout component | Ready to start |
-| 19i | app/page.tsx | Home page placeholder | Ready to start |
-| 19j | next.config.js | Next.js configuration | Ready to start |
-| 19k | - (testing) | Test dev server and build | Ready to start |
+| 19g | ~~app/globals.css~~ | **MERGED WITH 19d** | N/A |
+| 19h | app/layout.tsx | Root layout component | Depends on 19d |
+| 19i | app/page.tsx | Home page placeholder | Depends on 19h |
+| 19j | next.config.ts | Next.js configuration | Ready to start |
+| 19k | - (testing) | Test dev server and build | Depends on 19a-19j |
 | 20a | lib/websocket.ts | WebSocket basic connection | Ready to start |
 | 20b | lib/websocket.ts | WebSocket message sending | Depends on 20a |
 | 20c | lib/websocket.ts | WebSocket reconnection logic | Depends on 20b |
@@ -2323,8 +2326,14 @@ If WebSocket shows errors:
 | 21e | app/page.tsx | Integrate all components | Depends on 21a-21d |
 | 21f | - (testing) | End-to-end integration test | Depends on all above |
 
-**Total micro-tasks: 22**
+**Total micro-tasks: 23 (19ba added, 19g merged into 19d)**
 **Estimated time: 5-7 hours total (15-30 min per task)**
+
+**Key Changes from Original Plan:**
+- Task 19a is complete - Next.js 16 project initialized
+- Task 19ba added - Tailwind CSS v4 requires separate installation
+- Task 19g merged into 19d - Tailwind v4 uses CSS-based configuration
+- All file references updated to match actual Next.js 16 structure (next.config.ts, eslint.config.mjs)
 
 ---
 
@@ -2350,8 +2359,11 @@ If WebSocket shows errors:
 
 **Task 25: Trends View - Recharts Integration**
 - Historical data fetching
-- Multi-plot trend charts
-- Responsive sizing
+- Multi-plot trend charts (LineChart component)
+- Responsive sizing with ResponsiveContainer
+- **Important for v3:** CartesianGrid requires explicit `xAxisId`/`yAxisId` props
+- Reference: [Recharts 3.0 API examples](https://github.com/recharts/recharts)
+- Use new React hooks: `useChartWidth`, `useChartHeight` for custom components
 
 **Task 26: Trends View - Time Range Selector**
 - Dropdown for time range selection
