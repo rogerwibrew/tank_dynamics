@@ -3,15 +3,15 @@
 :root {
     --background: #ffffff;
     --foreground: #171717;
-    --color-process-normal: green (#10b981);
-    --color-process-warning: amber (#f59e0b);
-    --color-process-alarm: red (#ef4444);
-    --color-tank-liquid: blue (#3b82f6);
-    --color-tank-empty: dark gray (#374151);
-    --color-tank-border: medium gray (#6b7280);
-    --color-scada-dark: very dark gray (#111827);
-    --color-scada-card: dark gray (#1f2937);
-    --color-scada-text: white (#ffffff);
+    --color-process-normal: #10b981;
+    --color-process-warning: #f59e0b;
+    --color-process-alarm: #ef4444;
+    --color-tank-liquid: #3b82f6;
+    --color-tank-empty: #374151;
+    --color-tank-border: #6b7280;
+    --color-scada-dark: #111827;
+    --color-scada-card: #1f2937;
+    --color-scada-text: #ffffff;
 }
 
 @theme inline {
