@@ -1241,6 +1241,101 @@ def test_performance():
 
 ---
 
+## 12. Spec-Implementation Drift: Verify Backend Protocol Before Writing Frontend Tasks
+
+### The Problem We Encountered
+
+**What happened:** Task 20b (Add Message Sending Methods) specified that the WebSocketClient class should have domain-specific methods: `sendSetpoint()`, `sendPIDGains()`, `sendInletFlow()`, `sendInletMode()`. However, the Engineer implemented a generic `sendCommand(command, params)` method that wrapped messages as `{"type": "command", "command": "...", "params": {...}}`.
+
+This created a chain of problems:
+
+1. **Backend mismatch:** The backend (`api/main.py`) expects flat messages like `{"type": "setpoint", "value": 42}`. The `sendCommand()` wrapper format (`{"type": "command", ...}`) would be rejected as `Unknown message type: command`.
+
+2. **Task 20d cascading failure:** Task 20d (useWebSocket hook) referenced the domain-specific methods (`websocket.sendSetpoint(value)`) that were never implemented. The Engineer had to escalate to resolve the mismatch.
+
+3. **Dead code:** `subscribe()` and `unsubscribe()` methods were also implemented, but the backend has no subscribe/unsubscribe protocol — it broadcasts all state to all clients unconditionally.
+
+4. **Type system gap:** `frontend/lib/types.ts` already had a correct `WebSocketMessage` union type matching the backend protocol, but neither the task spec nor the implementation referenced it.
+
+**Root cause:** The Senior Engineer wrote Task 20b from general WebSocket patterns (generic command/subscribe model) rather than verifying the actual backend protocol defined in `api/main.py` and `frontend/lib/types.ts`.
+
+### Additional Discovery: State Field Name Mismatch
+
+While reviewing, we found another spec-implementation drift:
+
+- **Backend sends:** `tank_level` (in `api/simulation.py:get_state()`)
+- **Frontend expects:** `level` (in `frontend/lib/types.ts:SimulationState`)
+- **Backend sends:** `controller_output` — Frontend has no corresponding field
+- **Frontend expects:** `inlet_mode`, `inlet_config` — Backend doesn't send these in state updates
+
+This means when the frontend receives state data, `state.level` will be `undefined` while the actual data is in `state.tank_level`. This bug is dormant until Task 21c (ProcessView) tries to display the data.
+
+### The Lesson
+
+**For tasks involving frontend-backend communication:**
+
+1. **Read the actual backend code before writing frontend tasks** — Don't design frontend message handlers from assumed protocols. Check:
+   - What message format does the backend expect to receive?
+   - What message format does the backend send?
+   - What field names does the backend use?
+
+2. **Cross-reference types.ts with backend models** — If you have a types file that claims to match backend models, verify it actually does. Compare field-by-field against the backend's actual serialization output.
+
+3. **Use the type system as the contract** — If `WebSocketMessage` in `types.ts` defines the correct message format, task specs should reference it explicitly: "Send messages matching the `WebSocketMessage` type from `lib/types.ts`" rather than inventing a different API.
+
+4. **Don't add protocols the backend doesn't support** — Generic patterns like subscribe/unsubscribe are common in WebSocket tutorials but may not exist in your backend. Verify before specifying.
+
+### Specific Recommendations
+
+**When writing frontend WebSocket/API tasks:**
+
+```markdown
+BEFORE writing tasks, Senior Engineer must:
+1. Read the backend endpoint handler (e.g., api/main.py websocket_endpoint)
+2. List exact message formats the backend sends and receives
+3. Compare backend field names with frontend type definitions
+4. Note any mismatches and resolve them BEFORE writing tasks
+5. Reference existing type definitions rather than re-describing formats
+```
+
+**Checklist for frontend-backend integration tasks:**
+- [ ] Backend receive format documented and matches frontend send format
+- [ ] Backend send format documented and matches frontend receive types
+- [ ] Field names match exactly (e.g., `tank_level` vs `level`)
+- [ ] All fields accounted for (no missing or extra fields)
+- [ ] No protocols assumed that backend doesn't implement
+
+### Resolution Applied
+
+1. Removed `sendCommand()` (wrapper format backend doesn't understand)
+2. Removed `subscribe()`/`unsubscribe()` (protocol backend doesn't have)
+3. Added single `send()` method that passes messages through without wrapping
+4. Hook constructs messages matching the `WebSocketMessage` type and backend expectations
+
+### Outstanding Issue
+
+The `SimulationState` type in `types.ts` still has field name mismatches with the backend. This needs to be resolved before Tasks 21c-21e (which display state data). Either:
+- Update `types.ts` to match backend field names (`tank_level` instead of `level`, add `controller_output`)
+- Or update the backend to match frontend field names
+
+This should be addressed as a prerequisite to Task 21c.
+
+### Impact Assessment
+
+**Without backend verification:**
+- ❌ WebSocket messages silently rejected by backend
+- ❌ State data fields undefined in frontend
+- ❌ Dead code methods that can never work
+- ❌ Multiple escalation rounds to diagnose
+
+**With backend verification:**
+- ✅ Messages match protocol on first try
+- ✅ State fields map correctly
+- ✅ No wasted implementation effort
+- ✅ Types serve as verified contract
+
+---
+
 ## Summary: Critical Recommendations
 
 ### For Scaling to Larger Simulations
@@ -1260,31 +1355,38 @@ def test_performance():
 - ✅ **Simple verification** - One command to test
 - ✅ **Optimize for local LLMs** - Smaller models need smaller tasks
 
-#### 2. Architecture
+#### 2. Spec-Implementation Alignment (NEW)
+- ✅ **Verify backend protocol before writing frontend tasks** - Read endpoint handlers, not assumptions
+- ✅ **Cross-reference types.ts with backend models** - Field names must match exactly
+- ✅ **Use type system as contract** - Reference existing types, don't reinvent
+- ✅ **Don't assume protocols** - Verify subscribe/unsubscribe, command formats exist
+- ⚠️ **State field names** - Backend `tank_level` vs frontend `level` must be reconciled
+
+#### 3. Architecture
 - ✅ **Use dependency injection** - Test layers independently
 - ✅ **Define clean interfaces** - Physics, orchestration, API are separate
 - ✅ **Avoid singletons** - Support multiple simulations
 - ✅ **Support horizontal scaling** - Stateless API design
 
-#### 3. Testing
+#### 4. Testing
 - ✅ **Mock early and often** - Don't depend on compilation for API tests
 - ✅ **Multi-level test strategy** - Unit, integration, E2E, performance
 - ✅ **Test cleanup explicitly** - Memory leaks caught early
 - ✅ **Test error paths** - Not just happy paths
 
-#### 4. API Design
+#### 5. API Design
 - ✅ **Provide snapshot + streaming** - Different clients, different needs
 - ✅ **Selective subscriptions** - Don't broadcast everything
 - ✅ **Variable update rates** - Fast control, slow monitoring
 - ✅ **Design before implementing** - OpenAPI spec first
 
-#### 5. Performance
+#### 6. Performance
 - ✅ **Compression for large states** - MessagePack, gzip
 - ✅ **Caching for expensive queries** - State snapshots, computations
 - ✅ **Async for I/O, sync for CPU** - Don't block event loop
 - ✅ **Hierarchical state access** - Subsystems, not everything
 
-#### 6. Operations
+#### 7. Operations
 - ✅ **Structured logging** - JSON logs with correlation IDs
 - ✅ **Different errors for dev/prod** - Helpful vs secure
 - ✅ **Health checks and metrics** - Observability from day one
@@ -1319,5 +1421,5 @@ def test_performance():
 ---
 
 **Document maintained by:** Engineering team  
-**Last updated:** 2026-02-10 (added Lesson 11: Task Granularity)  
+**Last updated:** 2026-02-12 (added Lesson 12: Spec-Implementation Drift)  
 **Review cycle:** After each major phase
