@@ -52,6 +52,35 @@ export default function TankGraphic({
   const outletMarker =
     outletFlow > 0 ? "url(#arrowhead-blue)" : "url(#arrowhead-gray)";
 
+  // Inlet flow indicator positions
+  const INLET_ARROW_X = 57.5;
+  const INLET_ARROW_Y_START = 35;
+  const INLET_ARROW_Y_END = 50;
+  const INLET_LABEL_Y = 25;
+
+  // Outlet flow indicator positions
+  const OUTLET_ARROW_X = 182.5;
+  const OUTLET_ARROW_Y_START = 480;
+  const OUTLET_ARROW_Y_END = 530;
+  const OUTLET_LABEL_Y = 565;
+
+  // Inlet pipe dimensions and positions
+  const INLET_PIPE_X = 30;
+  const INLET_PIPE_Y = 50;
+  const INLET_PIPE_WIDTH = 50;
+  const INLET_PIPE_HEIGHT = 15;
+  const INLET_CONNECTOR_WIDTH = 10;
+
+  // Outlet pipe and valve dimensions
+  const OUTLET_PIPE_X_OFFSET = 75;
+  const OUTLET_PIPE_WIDTH = 15;
+  const OUTLET_PIPE_HEIGHT = 40;
+  const OUTLET_VALVE_X_OFFSET = 82.5;
+  const OUTLET_VALVE_Y_OFFSET = 60;
+  const OUTLET_VALVE_RADIUS = 12;
+  const OUTLET_VALVE_CROSS_LEFT_OFFSET = 75;
+  const OUTLET_VALVE_CROSS_RIGHT_OFFSET = 90;
+
   return (
     <div className="flex items-center justify-center w-full h-full bg-gray-900 rounded-lg p-4">
       <svg
@@ -146,10 +175,10 @@ export default function TankGraphic({
 
         {/* Inlet flow indicator arrow */}
         <line
-          x1={57.5}
-          y1={35}
-          x2={57.5}
-          y2={50}
+          x1={INLET_ARROW_X}
+          y1={INLET_ARROW_Y_START}
+          x2={INLET_ARROW_X}
+          y2={INLET_ARROW_Y_END}
           stroke={inletColor}
           strokeWidth="2"
           markerEnd={inletMarker}
@@ -158,8 +187,8 @@ export default function TankGraphic({
 
         {/* Inlet flow label */}
         <text
-          x={57.5}
-          y={25}
+          x={INLET_ARROW_X}
+          y={INLET_LABEL_Y}
           fontSize="14"
           fill="#d1d5db"
           textAnchor="middle"
@@ -170,10 +199,10 @@ export default function TankGraphic({
 
         {/* Outlet flow indicator arrow */}
         <line
-          x1={182.5}
-          y1={480}
-          x2={182.5}
-          y2={530}
+          x1={OUTLET_ARROW_X}
+          y1={OUTLET_ARROW_Y_START}
+          x2={OUTLET_ARROW_X}
+          y2={OUTLET_ARROW_Y_END}
           stroke={outletColor}
           strokeWidth="2"
           markerEnd={outletMarker}
@@ -182,8 +211,8 @@ export default function TankGraphic({
 
         {/* Outlet flow label */}
         <text
-          x={182.5}
-          y={565}
+          x={OUTLET_ARROW_X}
+          y={OUTLET_LABEL_Y}
           fontSize="14"
           fill="#d1d5db"
           textAnchor="middle"
@@ -195,36 +224,48 @@ export default function TankGraphic({
         {/* Inlet pipe at top */}
         <g>
           {/* Horizontal inlet pipe */}
-          <rect x="30" y="50" width="50" height="15" fill="#6b7280" />
+          <rect
+            x={INLET_PIPE_X}
+            y={INLET_PIPE_Y}
+            width={INLET_PIPE_WIDTH}
+            height={INLET_PIPE_HEIGHT}
+            fill="#6b7280"
+          />
           {/* Connection to tank */}
-          <rect x={tankLeft - 5} y="50" width="10" height="15" fill="#6b7280" />
+          <rect
+            x={tankLeft - 5}
+            y={INLET_PIPE_Y}
+            width={INLET_CONNECTOR_WIDTH}
+            height={INLET_PIPE_HEIGHT}
+            fill="#6b7280"
+          />
         </g>
 
         {/* Outlet pipe at bottom with valve symbol */}
         <g>
           {/* Vertical outlet pipe */}
           <rect
-            x={tankLeft + 75}
+            x={tankLeft + OUTLET_PIPE_X_OFFSET}
             y={tankBottom}
-            width="15"
-            height="40"
+            width={OUTLET_PIPE_WIDTH}
+            height={OUTLET_PIPE_HEIGHT}
             fill="#6b7280"
           />
           {/* Valve circle (simplified valve symbol) */}
           <circle
-            cx={tankLeft + 82.5}
-            cy={tankBottom + 60}
-            r="12"
+            cx={tankLeft + OUTLET_VALVE_X_OFFSET}
+            cy={tankBottom + OUTLET_VALVE_Y_OFFSET}
+            r={OUTLET_VALVE_RADIUS}
             fill="none"
             stroke="#6b7280"
             strokeWidth="2"
           />
           {/* Valve cross inside circle */}
           <line
-            x1={tankLeft + 75}
-            y1={tankBottom + 60}
-            x2={tankLeft + 90}
-            y2={tankBottom + 60}
+            x1={tankLeft + OUTLET_VALVE_CROSS_LEFT_OFFSET}
+            y1={tankBottom + OUTLET_VALVE_Y_OFFSET}
+            x2={tankLeft + OUTLET_VALVE_CROSS_RIGHT_OFFSET}
+            y2={tankBottom + OUTLET_VALVE_Y_OFFSET}
             stroke="#6b7280"
             strokeWidth="2"
           />
