@@ -53,6 +53,32 @@ testpaths = ["tests/python", "api/tests"]
 python_files = ["test_*.py"]
 addopts = "-v"
 
+[tool.pyright]
+# Pyright type checker configuration
+pythonVersion = "3.13"
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnusedImport = "warning"
+reportUnusedClass = "warning"
+reportUnusedFunction = "warning"
+reportUnusedVariable = "warning"
+reportDuplicateImport = "warning"
+# Ignore C++ extension module type stubs (we use pybind11)
+reportMissingModuleSource = false
+# Include/exclude paths
+include = ["api", "tank_sim", "tests"]
+exclude = [
+    "**/__pycache__",
+    "build",
+    "dist",
+    ".venv",
+    "frontend",
+    "docs"
+]
+
 [dependency-groups]
 dev = [
     "pytest-randomly>=4.0.1",

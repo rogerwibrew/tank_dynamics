@@ -2,9 +2,16 @@
   "lsp": {
     "pyright": {
       "settings": {
-        "python.pythonPath": ".venv/bin/python",
-        "python.venvPath": ".",
-        "python.analysis.extraPaths": [".venv/lib/python3.13/site-packages"]
+        "python": {
+          "pythonPath": ".venv/bin/python"
+        },
+        "python.analysis": {
+          "extraPaths": [".venv/lib/python3.13/site-packages"],
+          "typeCheckingMode": "basic",
+          "diagnosticMode": "workspace",
+          "autoSearchPaths": true,
+          "useLibraryCodeForTypes": true
+        }
       }
     }
   }
