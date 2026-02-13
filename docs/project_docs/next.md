@@ -164,9 +164,16 @@ When state !== null:
 
 ### Verification
 
-Run the dev server:
+To test the integration:
+
+**Quick frontend-only check** (backend must already be running):
 ```bash
 cd frontend && npm run dev
+```
+
+**Full-stack testing** (recommended - see LESSONS_LEARNED.md #13):
+```bash
+./scripts/dev.sh
 ```
 
 Expected result:
@@ -344,9 +351,16 @@ Place it after the valve position section:
 
 ### Verification
 
-Run dev server:
+To test the integration:
+
+**Quick frontend-only check** (backend must already be running):
 ```bash
 cd frontend && npm run dev
+```
+
+**Full-stack testing** (recommended - see LESSONS_LEARNED.md #13):
+```bash
+./scripts/dev.sh
 ```
 
 **Test steps:**
@@ -541,9 +555,16 @@ This will be improved in Phase 7 when we add config fetching.
 
 ### Verification
 
-Run dev server:
+To test the integration:
+
+**Quick frontend-only check** (backend must already be running):
 ```bash
 cd frontend && npm run dev
+```
+
+**Full-stack testing** (recommended - see LESSONS_LEARNED.md #13):
+```bash
+./scripts/dev.sh
 ```
 
 **Test:**
@@ -747,9 +768,16 @@ Add below PIDTuningControl:
 
 ### Verification
 
-Run dev server:
+To test the integration:
+
+**Quick frontend-only check** (backend must already be running):
 ```bash
 cd frontend && npm run dev
+```
+
+**Full-stack testing** (recommended - see LESSONS_LEARNED.md #13):
+```bash
+./scripts/dev.sh
 ```
 
 **Test constant mode:**
@@ -853,9 +881,16 @@ Add CSS keyframe animation for arrow pulsing:
 
 ### Verification
 
-After modification:
+To test the modification:
+
+**Quick frontend-only check** (backend must already be running):
 ```bash
 cd frontend && npm run dev
+```
+
+**Full-stack testing** (recommended - see LESSONS_LEARNED.md #13):
+```bash
+./scripts/dev.sh
 ```
 
 **Visual checks:**
@@ -915,8 +950,16 @@ Update the TankGraphic usage to pass inlet and outlet flow rates.
 
 ### Verification
 
+To test the modification:
+
+**Quick frontend-only check** (backend must already be running):
 ```bash
 cd frontend && npm run dev
+```
+
+**Full-stack testing** (recommended - see LESSONS_LEARNED.md #13):
+```bash
+./scripts/dev.sh
 ```
 
 **Check:**
@@ -947,19 +990,32 @@ Comprehensive test of the complete Process View with all controls and visualizat
 
 **Start full stack:**
 
-1. Start backend (from project root):
+1. From project root, run the development script:
 ```bash
+./scripts/dev.sh
+```
+
+This script (see LESSONS_LEARNED.md Section 13) handles:
+- Port cleanup using `ss` (not `lsof`)
+- Turbopack cache clearing (`rm -rf frontend/.next`)
+- Backend startup with `.venv/bin/uvicorn` (avoids C++ rebuild)
+- Frontend startup with explicit `--port 3000` (fails fast on port conflicts)
+
+2. Open http://localhost:3000 in browser
+
+**Alternative (manual startup for debugging):**
+
+If you need separate terminals:
+```bash
+# Terminal 1: Backend
 cd api
-uv run uvicorn main:app --reload
-```
+.venv/bin/uvicorn main:app --reload --reload-dir api --reload-dir tank_sim
 
-2. Start frontend (separate terminal):
-```bash
+# Terminal 2: Frontend
 cd frontend
-npm run dev
+rm -rf .next  # Clear Turbopack cache
+npm run dev -- --port 3000
 ```
-
-3. Open http://localhost:3000 in browser
 
 ### Test Checklist
 
@@ -1062,7 +1118,14 @@ wscat -c ws://localhost:8000/ws
 ## Summary of Phase 5 Micro-Tasks
 
 ### Completed Tasks
-(None yet - starting fresh)
+
+As of 2026-02-13 (commit 71dbc60):
+- [x] Task 22a: Create TankGraphic SVG component
+- [x] Task 22b: Integrate TankGraphic into ProcessView
+- [x] Task 23a: Create SetpointControl component
+- [x] Task 23b: Integrate SetpointControl into ProcessView
+- [x] Task 24a: Create PIDTuningControl component
+- [x] Task 24b: Integrate PIDTuningControl into ProcessView
 
 ### Current Tasks (22a - 27)
 
@@ -1134,6 +1197,22 @@ git add .
 git commit -m "Phase 5 Complete: Process View with tank visualization and controls"
 # Code review, then merge to main
 ```
+
+### Why Tasks Reference Backend Protocol Explicitly
+
+See **LESSONS_LEARNED.md Section 12** for full context.
+
+Tasks in this file explicitly reference:
+- Backend field names from `api/simulation.py`: `tank_level`, `controller_output`
+- `WebSocketMessage` type from `frontend/lib/types.ts` (verified against `api/main.py`)
+- Actual message formats the backend sends/receives
+
+**Why:** In earlier phases, tasks were written from general patterns (generic command wrappers, subscribe/unsubscribe) that didn't match the actual backend protocol. This caused:
+- Messages silently rejected by backend
+- Dead code (methods the backend doesn't support)
+- Multiple escalation rounds
+
+**Now:** Senior Engineer verifies backend protocol BEFORE writing frontend tasks. Tasks reference the verified types/fields rather than re-describing from assumptions.
 
 ### Common Patterns
 
