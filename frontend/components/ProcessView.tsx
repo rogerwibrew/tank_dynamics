@@ -3,6 +3,7 @@
 import { useSimulation } from "../app/providers";
 import { ConnectionStatus } from "./ConnectionStatus";
 import TankGraphic from "./TankGraphic";
+import SetpointControl from "./SetpointControl";
 import {
   formatLevel,
   formatFlowRate,
@@ -23,7 +24,11 @@ import {
  * - Waiting message when disconnected
  */
 export function ProcessView() {
-  const { state } = useSimulation();
+  const { state, setSetpoint } = useSimulation();
+
+  const handleSetpointChange = (newValue: number) => {
+    setSetpoint(newValue);
+  };
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -115,7 +120,7 @@ export function ProcessView() {
             </div>
 
             {/* Valve Position */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-700">
               <div>
                 <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
                   Valve Position
@@ -124,6 +129,15 @@ export function ProcessView() {
                   {formatValvePosition(state.valve_position)}
                 </p>
               </div>
+            </div>
+
+            {/* Setpoint Control */}
+            <div className="pt-4">
+              <SetpointControl
+                currentSetpoint={state.setpoint}
+                currentLevel={state.tank_level}
+                onSetpointChange={handleSetpointChange}
+              />
             </div>
           </div>
         </div>
