@@ -1411,32 +1411,49 @@ This should be addressed as a prerequisite to Task 21c.
 
 ---
 
-## 13. Dev Server Startup: Avoid uv run and Scope File Watchers
+## 13. Dev Server Startup: Multiple Interacting Failures
 
 ### The Problem We Encountered
 
-Starting the backend with `uv run uvicorn api.main:app --reload` caused two issues:
+The `scripts/dev.sh` startup script required three rounds of debugging to get a clean start. Each fix revealed the next issue:
 
 1. **`uv run` rebuilds C++ every time.** Even though `tank_sim` was already installed in the venv, `uv run` triggers a full rebuild of the C++ extension (~60s) on every invocation.
 
 2. **`uvicorn --reload` watches the entire project tree.** Without `--reload-dir`, uvicorn watches everything including `frontend/.next/`, which contains thousands of rapidly-changing files during Next.js development. The two file watchers (uvicorn's WatchFiles and Next.js's Turbopack) conflict, causing the frontend to hang on browser refresh.
 
+3. **Turbopack persistent cache corruption.** After a crash or unclean shutdown, Turbopack's on-disk cache (`frontend/.next/`) can become corrupted. This causes panics on startup: `range start index 22940143 out of range for slice of length 22938863` in `turbo-persistence`. Deleting only the lock file (`frontend/.next/dev/lock`) is insufficient — the entire `.next/` directory must be removed.
+
+4. **Next.js silently falls back to another port.** Without `--port 3000`, Next.js detects port 3000 is in use and quietly starts on port 3001. This breaks the frontend-backend relationship without any obvious error. Passing `--port 3000` explicitly makes it fail fast with `EADDRINUSE` instead.
+
+5. **`lsof` misses processes on wildcard addresses.** The original cleanup used `lsof -ti :3000` to find processes holding ports. However, Next.js binds to `*:3000` (all interfaces, including IPv6 `:::3000`), and `lsof -ti :3000` does not detect this. The stale Next.js process survived the cleanup, causing the `EADDRINUSE` error. `ss -tlnp` reliably detects processes regardless of bind address.
+
 ### The Lesson
 
 - Use `.venv/bin/uvicorn` directly to skip the C++ rebuild.
 - Scope `--reload-dir` to only the directories that contain backend code.
-- Clean up stale `frontend/.next/dev/lock` files before starting Next.js.
+- **Clear the entire `frontend/.next/` directory** before starting, not just the lock file. Turbopack cache corruption is a known issue.
+- **Pass `--port` explicitly** to Next.js so it fails fast rather than silently falling back.
+- **Use `ss` instead of `lsof`** for port detection on Linux. `lsof` has blind spots for wildcard/IPv6 listeners; `ss` is part of `iproute2` and always available on modern Linux.
+- **Poll for port release** after killing a process — `kill -9` returns immediately but the kernel may take time to free the socket.
 
 ### Resolution
 
-Created `scripts/dev.sh` that encodes these lessons:
+The `scripts/dev.sh` script encodes all of these lessons:
 
 ```bash
-# Backend: direct venv invocation, scoped reload
-.venv/bin/uvicorn api.main:app --reload --reload-dir api --reload-dir tank_sim --host 0.0.0.0 --port 8000
+# Port cleanup: use ss (not lsof) to find listeners, then poll until free
+pids=$(ss -tlnp "sport = :$port" | grep -oP 'pid=\K[0-9]+' | sort -u)
+echo "$pids" | xargs kill -9
+# Poll every 100ms for up to 5s until port is released
 
-# Frontend: standard Next.js dev
-cd frontend && npm run dev
+# Clear entire Turbopack cache
+rm -rf frontend/.next
+
+# Backend: direct venv invocation, scoped reload
+.venv/bin/uvicorn api.main:app --reload --reload-dir api --reload-dir tank_sim
+
+# Frontend: explicit port to fail fast
+npm run dev -- --port 3000
 ```
 
 ### Specific Recommendations
@@ -1444,6 +1461,9 @@ cd frontend && npm run dev
 - **Always use `scripts/dev.sh`** to start the dev environment.
 - **Never use `uv run`** for starting the backend server. Only use `uv run` for one-off commands like `uv run pytest` where the rebuild check is acceptable.
 - **If the frontend hangs on refresh**, check whether another file watcher is scanning `frontend/.next/`.
+- **If Next.js panics on startup** with Turbopack errors, delete `frontend/.next/` entirely.
+- **Never use `lsof` for port detection** in scripts on Linux — use `ss -tlnp "sport = :PORT"` instead.
+- **If `EADDRINUSE` persists** after killing processes, run `ss -tlnp | grep :PORT` to see what's actually holding the port.
 
 ---
 
@@ -1457,5 +1477,5 @@ cd frontend && npm run dev
 ---
 
 **Document maintained by:** Engineering team  
-**Last updated:** 2026-02-12 (added Lesson 12: Spec-Implementation Drift)  
+**Last updated:** 2026-02-13 (updated Lesson 13: lsof vs ss, Turbopack cache, port cleanup)  
 **Review cycle:** After each major phase

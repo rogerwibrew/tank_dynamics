@@ -18,8 +18,9 @@
 #      uvicorn watches the entire project including frontend/.next/, which
 #      has thousands of rapidly-changing files. The two file watchers (uvicorn
 #      and Next.js) conflict and cause the frontend to hang on refresh.
-#   3. Clean up the Next.js dev lock file before starting. Stale lock files
-#      from crashed dev servers prevent Next.js from starting.
+#   3. Clear the entire .next/ cache before starting. Turbopack's persistent
+#      cache can become corrupted (causing panics), and stale lock files from
+#      crashed dev servers prevent Next.js from starting.
 
 set -e
 
@@ -56,18 +57,28 @@ fi
 
 # --- Cleanup ---
 
-# Kill any existing servers on our ports
+# Kill any existing servers on our ports and wait for release.
+# Uses ss (not lsof) because lsof misses processes listening on wildcard (*:port).
 for port in 3000 8000; do
-    pid=$(lsof -ti ":$port" 2>/dev/null || true)
-    if [ -n "$pid" ]; then
-        echo -e "${YELLOW}Killing existing process on port $port (PID: $pid)${NC}"
-        kill -9 $pid 2>/dev/null || true
-        sleep 1
+    pids=$(ss -tlnp "sport = :$port" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | sort -u || true)
+    if [ -n "$pids" ]; then
+        echo -e "${YELLOW}Killing existing process(es) on port $port (PIDs: $pids)${NC}"
+        echo "$pids" | xargs kill -9 2>/dev/null || true
+        # Wait until the port is actually free (up to 5s)
+        for i in $(seq 1 50); do
+            if ! ss -tlnp "sport = :$port" 2>/dev/null | grep -q "pid="; then
+                break
+            fi
+            sleep 0.1
+        done
     fi
 done
 
-# Remove stale Next.js lock file
-rm -f "$FRONTEND_DIR/.next/dev/lock"
+# Clear Next.js cache (Turbopack cache corruption causes panics on startup)
+if [ -d "$FRONTEND_DIR/.next" ]; then
+    echo -e "${YELLOW}Clearing Next.js cache...${NC}"
+    rm -rf "$FRONTEND_DIR/.next"
+fi
 
 # --- Start servers ---
 
@@ -93,10 +104,10 @@ cd "$PROJECT_ROOT"
     --port 8000 &
 BACKEND_PID=$!
 
-# Start frontend
+# Start frontend (explicit --port 3000 to fail fast if port is still busy)
 echo -e "${GREEN}Starting frontend on http://localhost:3000${NC}"
 cd "$FRONTEND_DIR"
-npm run dev &
+npm run dev -- --port 3000 &
 FRONTEND_PID=$!
 
 # Wait for both
