@@ -8,6 +8,7 @@ import { downsample } from "../lib/utils";
 import LevelChart from "./LevelChart";
 import FlowsChart from "./FlowsChart";
 import ValveChart from "./ValveChart";
+import { ChartErrorBoundary } from "./ChartErrorBoundary";
 
 const MAX_CHART_POINTS = 500;
 
@@ -159,7 +160,9 @@ export function TrendsView() {
             <h3 className="text-lg font-semibold text-white mb-3">
               Tank Level vs Setpoint
             </h3>
-            <LevelChart data={displayData} />
+            <ChartErrorBoundary chartName="Level Chart">
+              <LevelChart data={displayData} />
+            </ChartErrorBoundary>
           </div>
 
           {/* Flows Chart */}
@@ -167,7 +170,9 @@ export function TrendsView() {
             <h3 className="text-lg font-semibold text-white mb-3">
               Inlet and Outlet Flows
             </h3>
-            <FlowsChart data={displayData} />
+            <ChartErrorBoundary chartName="Flows Chart">
+              <FlowsChart data={displayData} />
+            </ChartErrorBoundary>
           </div>
 
           {/* Valve Chart */}
@@ -175,7 +180,9 @@ export function TrendsView() {
             <h3 className="text-lg font-semibold text-white mb-3">
               Controller Output (Valve Position)
             </h3>
-            <ValveChart data={displayData} />
+            <ChartErrorBoundary chartName="Valve Chart">
+              <ValveChart data={displayData} />
+            </ChartErrorBoundary>
           </div>
         </div>
       )}
