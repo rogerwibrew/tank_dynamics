@@ -20,15 +20,16 @@ Phase 6 successfully delivers historical trend visualization with three professi
 - Interactive chart features (custom tooltips, clickable legends)
 - All 14 tasks (28a-28f polish, 29a-29h trends) completed
 
-**Recommendation:** ⚠️ **Fix critical interpolation issue**, then merge. Code quality is otherwise excellent.
+**Recommendation:** ✅ **All issues resolved** - Ready to merge to main.
 
 ---
 
 ## Critical Issues
 
-### Issue 1: Chart Line Interpolation Causes Visual Instability
+### ✅ Issue 1: Chart Line Interpolation Causes Visual Instability [RESOLVED]
 
 **Severity:** Critical  
+**Status:** ✅ FIXED (commits 91f2a52, 0ffff1a, 52168cc)  
 **Locations:** 
 - `frontend/components/LevelChart.tsx:95, 105`
 - `frontend/components/FlowsChart.tsx:99, 109`
@@ -74,17 +75,17 @@ Phase 6 successfully delivers historical trend visualization with three professi
 type="stepAfter"  // Shows held values (appropriate for valve position)
 ```
 
-**Action required:**
-1. Change all 5 Line components in the three charts from `type="monotone"` to `type="linear"`
-2. Test with Brownian motion enabled - lines should now be stable
-3. Consider `type="stepAfter"` specifically for ValveChart if discrete steps are preferred
+**Resolution:**
+1. ✅ Changed all 5 Line components from `type="monotone"` to `type="linear"` (commit 91f2a52)
+2. ✅ Identified secondary issue: downsampling algorithm was recalculating point selection
+3. ✅ Replaced variable downsampling with fixed decimation factor (14) for stable rendering (commit 52168cc)
+4. ✅ Tested with Brownian motion - charts now completely stable
 
-**Affected lines:**
-- LevelChart.tsx:95 (tank_level) - Change to "linear"
-- LevelChart.tsx:105 (setpoint) - Change to "linear" 
-- FlowsChart.tsx:99 (inlet_flow) - Change to "linear"
-- FlowsChart.tsx:109 (outlet_flow) - Change to "linear"
-- ValveChart.tsx:97 (valve_position) - Change to "linear" or "stepAfter"
+**Technical details:**
+- Initial fix: Changed interpolation from monotone cubic to linear
+- Root cause: Downsampling recalculated which points to display on each update
+- Final solution: Fixed decimation (every 14th point) ensures rendered points never shift
+- Result: Strip-chart behavior - new data appends right, old scrolls left
 
 ---
 
@@ -96,9 +97,10 @@ type="stepAfter"  // Shows held values (appropriate for valve position)
 
 ## Minor Issues
 
-### Issue 1: Duplicate Code Across Chart Components
+### ✅ Issue 1: Duplicate Code Across Chart Components [RESOLVED]
 
 **Severity:** Minor  
+**Status:** ✅ FIXED (commit ec77cf9)  
 **Locations:** LevelChart.tsx, FlowsChart.tsx, ValveChart.tsx
 
 **Problem:** The three chart components share significant structural similarity:
@@ -153,11 +155,16 @@ function useChartLegend(dataKeys: string[]) {
 }
 ```
 
-**Note:** This is a nice-to-have refactoring, not blocking for merge. The current duplication is manageable with 3 charts.
+**Resolution:**
+✅ Created shared `ChartTooltip.tsx` component with proper TypeScript types
+✅ Eliminated ~60 lines of duplicate code across three charts
+✅ Single formatter function parameter for value formatting flexibility
+✅ All charts now use shared component with consistent styling
 
-### Issue 2: "any" Type in Custom Tooltip
+### ✅ Issue 2: "any" Type in Custom Tooltip [RESOLVED]
 
 **Severity:** Minor  
+**Status:** ✅ FIXED (commit ec77cf9)  
 **Locations:** LevelChart.tsx:24, FlowsChart.tsx:24, ValveChart.tsx:24
 
 **Problem:** Custom tooltip functions use `any` type for parameters:
@@ -194,11 +201,15 @@ function CustomTooltip({ active, payload, label }: RechartsTooltipProps) {
 }
 ```
 
-**Priority:** Low - current code is defensive and unlikely to break.
+**Resolution:**
+✅ Created proper TypeScript interface `RechartsTooltipProps` in ChartTooltip.tsx
+✅ No more `any` types - fully type-safe tooltip implementation
+✅ Based on observed Recharts behavior with proper type definitions
 
-### Issue 3: Downsampling Algorithm Could Be More Sophisticated
+### ✅ Issue 3: Downsampling Algorithm Could Be More Sophisticated [RESOLVED]
 
 **Severity:** Minor  
+**Status:** ✅ FIXED (commit 52168cc) - Different approach than suggested  
 **Location:** frontend/lib/utils.ts:84-97
 
 **Problem:** The current downsampling algorithm uses evenly-spaced index selection:
@@ -236,11 +247,18 @@ Consider Largest-Triangle-Three-Buckets (LTTB) algorithm, which preserves visual
 
 **Example library:** `downsample-lttb` npm package
 
-**Priority:** Low - current algorithm is adequate for smooth process data. Only matters for highly variable signals (like Brownian inlet with high variance).
+**Resolution:**
+✅ Implemented fixed decimation factor (14) instead of variable downsampling
+✅ This actually solved the critical instability issue (was root cause)
+✅ Provides better solution than LTTB for real-time strip chart visualization
+✅ Every 14th point always selected - stable, predictable, performant
 
-### Issue 4: No Error Boundary Around Charts
+**Note:** The suggested LTTB algorithm was not needed. Fixed decimation provides superior stability for real-time process data.
+
+### ✅ Issue 4: No Error Boundary Around Charts [RESOLVED]
 
 **Severity:** Minor  
+**Status:** ✅ FIXED (commit 4f73288)  
 **Locations:** TrendsView.tsx:121-159
 
 **Problem:** If a chart component throws an error (e.g., Recharts bug, malformed data), it will crash the entire TrendsView and possibly propagate up to crash the app.
@@ -269,7 +287,12 @@ function ChartErrorFallback({ error }: { error: Error }) {
 </ErrorBoundary>
 ```
 
-**Priority:** Low - charts are stable in practice, this is defensive programming.
+**Resolution:**
+✅ Created `ChartErrorBoundary.tsx` - React error boundary class component
+✅ Wrapped all three charts in TrendsView with error boundaries
+✅ User-friendly error display with chart name and "Try Again" button
+✅ Errors logged to console for debugging
+✅ Chart failures isolated - one error doesn't crash entire view
 
 ---
 
