@@ -23,6 +23,18 @@ export default function SetpointControl({
   // Calculate error (setpoint - level)
   const error = currentSetpoint - currentLevel;
 
+  // Determine error color based on magnitude (not direction)
+  const getErrorColor = (): string => {
+    const absoluteError = Math.abs(error);
+    if (absoluteError < 0.2) {
+      return "text-gray-400"; // Small error: gray
+    } else if (absoluteError < 0.5) {
+      return "text-yellow-400"; // Medium error: yellow
+    } else {
+      return "text-red-400"; // Large error: red
+    }
+  };
+
   // Validate and clamp value to valid range
   const clampValue = (value: number): number => {
     const clamped = Math.max(MIN_SETPOINT, Math.min(MAX_SETPOINT, value));
@@ -100,7 +112,7 @@ export default function SetpointControl({
       {/* Error display (setpoint - level) */}
       <div className="text-sm text-gray-400">
         <span className="font-semibold">Error (SP - PV):</span>{" "}
-        <span className={error >= 0 ? "text-green-400" : "text-red-400"}>
+        <span className={getErrorColor()}>
           {error >= 0 ? "+" : ""}
           {error.toFixed(2)} m
         </span>
