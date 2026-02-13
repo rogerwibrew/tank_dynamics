@@ -65,15 +65,33 @@ export function TrendsView() {
     }
   }, [state]);
 
-  // Take most recent MAX_CHART_POINTS without downsampling to avoid visual instability.
-  // Downsampling recalculates which points to show on every update, causing lines to jump.
-  // Instead, we simply show the tail of the data (most recent points).
+  // Stable downsampling using FIXED decimation factor.
+  // Key: Use a constant decimation regardless of current data length.
+  // This prevents previously rendered points from shifting positions.
   const displayData = useMemo(() => {
     if (chartData.length <= MAX_CHART_POINTS) {
       return chartData;
     }
-    // Show most recent MAX_CHART_POINTS
-    return chartData.slice(-MAX_CHART_POINTS);
+
+    // Fixed decimation factor: designed for max buffer size (7200 points)
+    // 7200 / 500 = ~14, so we take every 14th point
+    // This factor remains constant, ensuring stable rendering
+    const DECIMATION = 14;
+
+    const result: SimulationState[] = [];
+
+    // Take every DECIMATION-th point starting from index 0
+    for (let i = 0; i < chartData.length; i += DECIMATION) {
+      result.push(chartData[i]);
+    }
+
+    // Always include the very last point for current state accuracy
+    const lastPoint = chartData[chartData.length - 1];
+    if (result[result.length - 1] !== lastPoint) {
+      result.push(lastPoint);
+    }
+
+    return result;
   }, [chartData]);
 
   return (
