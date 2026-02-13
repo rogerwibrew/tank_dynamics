@@ -36,6 +36,39 @@ export function ProcessView() {
   });
   const [reverseActing, setReverseActing] = React.useState(true);
 
+  // Fetch PID gains from backend on mount
+  React.useEffect(() => {
+    const fetchPIDGains = async () => {
+      try {
+        const response = await fetch("/api/config");
+        if (!response.ok) {
+          console.error(
+            "Failed to fetch config:",
+            response.status,
+            response.statusText,
+          );
+          return;
+        }
+        const data = await response.json();
+        if (data.pid_gains) {
+          const { Kc, tau_I, tau_D } = data.pid_gains;
+          // Display positive value; determine reverse acting from sign
+          setCurrentPIDGains({
+            Kc: Math.abs(Kc),
+            tau_I,
+            tau_D,
+          });
+          setReverseActing(Kc < 0);
+        }
+      } catch (error) {
+        console.error("Error fetching PID gains:", error);
+        // Keep default hardcoded values if fetch fails
+      }
+    };
+
+    fetchPIDGains();
+  }, []);
+
   const handleSetpointChange = (newValue: number) => {
     setSetpoint(newValue);
   };
