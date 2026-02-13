@@ -189,9 +189,10 @@ async def set_pid_gains(command: PIDTuningCommand):
                 status_code=500, content={"error": "Simulation not initialized"}
             )
 
-        gains = tank_sim.PIDGains(
-            Kc=command.Kc, tau_I=command.tau_I, tau_D=command.tau_D
-        )
+        gains = tank_sim.PIDGains()
+        gains.Kc = command.Kc
+        gains.tau_I = command.tau_I
+        gains.tau_D = command.tau_D
         simulation_manager.set_pid_gains(gains)
         logger.info(
             f"PID gains updated: Kc={command.Kc}, tau_I={command.tau_I}, tau_D={command.tau_D}"
@@ -332,9 +333,10 @@ async def websocket_endpoint(websocket: WebSocket):
                             }
                         )
                     else:
-                        gains = tank_sim.PIDGains(
-                            Kc=float(kc), tau_I=float(tau_i), tau_D=float(tau_d)
-                        )
+                        gains = tank_sim.PIDGains()
+                        gains.Kc = float(kc)
+                        gains.tau_I = float(tau_i)
+                        gains.tau_D = float(tau_d)
                         simulation_manager.set_pid_gains(gains)
                         logger.info(
                             f"PID command: Kc={kc}, tau_I={tau_i}, tau_D={tau_d}"

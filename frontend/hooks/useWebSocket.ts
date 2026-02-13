@@ -108,12 +108,7 @@ export function useWebSocket(): {
         return;
       }
 
-      // Validate ranges (reasonable PID values)
-      if (Kc < 0) {
-        setError("Invalid Kc: must be non-negative");
-        console.error("Invalid Kc value:", Kc);
-        return;
-      }
+      // Validate ranges (tau_I and tau_D must be non-negative; Kc sign is set by UI)
       if (tau_I < 0) {
         setError("Invalid tau_I: must be non-negative");
         console.error("Invalid tau_I value:", tau_I);

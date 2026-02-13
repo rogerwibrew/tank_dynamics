@@ -1,9 +1,11 @@
 "use client";
 
+import React from "react";
 import { useSimulation } from "../app/providers";
 import { ConnectionStatus } from "./ConnectionStatus";
 import TankGraphic from "./TankGraphic";
 import SetpointControl from "./SetpointControl";
+import PIDTuningControl from "./PIDTuningControl";
 import {
   formatLevel,
   formatFlowRate,
@@ -24,10 +26,31 @@ import {
  * - Waiting message when disconnected
  */
 export function ProcessView() {
-  const { state, setSetpoint } = useSimulation();
+  const { state, setSetpoint, setPIDGains } = useSimulation();
+  const [currentPIDGains, setCurrentPIDGains] = React.useState({
+    Kc: 1.0,
+    tau_I: 10.0,
+    tau_D: 1.0,
+  });
+  const [reverseActing, setReverseActing] = React.useState(true);
 
   const handleSetpointChange = (newValue: number) => {
     setSetpoint(newValue);
+  };
+
+  const handlePIDChange = (newGains: {
+    Kc: number;
+    tau_I: number;
+    tau_D: number;
+  }) => {
+    // newGains.Kc is already negated by PIDTuningControl when reverse acting
+    setPIDGains(newGains.Kc, newGains.tau_I, newGains.tau_D);
+    // Store the positive display value for the UI
+    setCurrentPIDGains({
+      Kc: Math.abs(newGains.Kc),
+      tau_I: newGains.tau_I,
+      tau_D: newGains.tau_D,
+    });
   };
 
   return (
@@ -132,11 +155,21 @@ export function ProcessView() {
             </div>
 
             {/* Setpoint Control */}
-            <div className="pt-4">
+            <div className="pt-4 border-t border-gray-700">
               <SetpointControl
                 currentSetpoint={state.setpoint}
                 currentLevel={state.tank_level}
                 onSetpointChange={handleSetpointChange}
+              />
+            </div>
+
+            {/* PID Tuning Control */}
+            <div className="pt-4 border-t border-gray-700">
+              <PIDTuningControl
+                currentGains={currentPIDGains}
+                reverseActing={reverseActing}
+                onGainsChange={handlePIDChange}
+                onReverseActingChange={setReverseActing}
               />
             </div>
           </div>
