@@ -14,7 +14,7 @@ interface InletFlowControlProps {
   onFlowChange: (value: number) => void;
   onModeChange: (
     mode: "constant" | "brownian",
-    config?: { min: number; max: number; variance: number }
+    config?: { min: number; max: number; variance: number },
   ) => void;
 }
 
@@ -25,7 +25,7 @@ export default function InletFlowControl({
 }: InletFlowControlProps) {
   // Local state for pending changes
   const [localMode, setLocalMode] = React.useState<"constant" | "brownian">(
-    "constant"
+    "constant",
   );
   const [localFlowRate, setLocalFlowRate] = React.useState(currentFlow);
   const [localMin, setLocalMin] = React.useState(0.8);
@@ -74,6 +74,7 @@ export default function InletFlowControl({
   const handleApply = () => {
     if (validateInputs()) {
       if (localMode === "constant") {
+        onModeChange("constant");
         onFlowChange(localFlowRate);
       } else {
         onModeChange("brownian", {

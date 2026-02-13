@@ -178,19 +178,27 @@ export function useWebSocket(): {
         return;
       }
 
-      // Validate ranges
-      if (min < 0 || max < 0 || variance < 0) {
-        setError("Invalid inlet mode parameters: values must be non-negative");
-        console.error("Invalid inlet mode parameters:", { min, max, variance });
-        return;
-      }
-      if (min >= max) {
-        setError("Invalid inlet mode parameters: min must be less than max");
-        console.error("Invalid inlet mode parameters: min >= max", {
-          min,
-          max,
-        });
-        return;
+      // Validate ranges (only for brownian mode where min/max matter)
+      if (mode === "brownian") {
+        if (min < 0 || max < 0 || variance < 0) {
+          setError(
+            "Invalid inlet mode parameters: values must be non-negative",
+          );
+          console.error("Invalid inlet mode parameters:", {
+            min,
+            max,
+            variance,
+          });
+          return;
+        }
+        if (min >= max) {
+          setError("Invalid inlet mode parameters: min must be less than max");
+          console.error("Invalid inlet mode parameters: min >= max", {
+            min,
+            max,
+          });
+          return;
+        }
       }
 
       try {
