@@ -1,6 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useHistory } from "../hooks/useHistory";
+import { useSimulation } from "../app/providers";
+import { SimulationState } from "../lib/types";
 import LevelChart from "./LevelChart";
 import FlowsChart from "./FlowsChart";
 import ValveChart from "./ValveChart";
@@ -19,6 +22,31 @@ import ValveChart from "./ValveChart";
  */
 export function TrendsView() {
   const { history, loading, error } = useHistory(3600);
+  const { state } = useSimulation();
+  const [chartData, setChartData] = useState<SimulationState[]>([]);
+
+  // Initialize chartData with historical data when it loads
+  useEffect(() => {
+    if (!loading && history.length > 0) {
+      setChartData(history);
+    }
+  }, [history, loading]);
+
+  // Append real-time WebSocket updates to chartData
+  useEffect(() => {
+    if (state && chartData.length > 0) {
+      const latestTime = chartData[chartData.length - 1].time;
+
+      // Only append if this is genuinely new data (newer timestamp)
+      if (state.time > latestTime) {
+        setChartData((prev) => {
+          const updated = [...prev, state];
+          // Limit to last 7200 entries (2 hours at 1Hz)
+          return updated.slice(-7200);
+        });
+      }
+    }
+  }, [state, chartData.length]);
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -47,7 +75,7 @@ export function TrendsView() {
       )}
 
       {/* Empty state */}
-      {!loading && !error && history.length === 0 && (
+      {!loading && !error && chartData.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-400 text-center">
             No historical data available
@@ -56,14 +84,14 @@ export function TrendsView() {
       )}
 
       {/* Charts */}
-      {!loading && !error && history.length > 0 && (
+      {!loading && !error && chartData.length > 0 && (
         <div className="flex-1 overflow-auto space-y-4">
           {/* Level Chart */}
           <div className="bg-gray-800 rounded-lg p-4">
             <h3 className="text-lg font-semibold text-white mb-3">
               Tank Level vs Setpoint
             </h3>
-            <LevelChart data={history} />
+            <LevelChart data={chartData} />
           </div>
 
           {/* Flows Chart */}
@@ -71,7 +99,7 @@ export function TrendsView() {
             <h3 className="text-lg font-semibold text-white mb-3">
               Inlet and Outlet Flows
             </h3>
-            <FlowsChart data={history} />
+            <FlowsChart data={chartData} />
           </div>
 
           {/* Valve Chart */}
@@ -79,7 +107,7 @@ export function TrendsView() {
             <h3 className="text-lg font-semibold text-white mb-3">
               Controller Output (Valve Position)
             </h3>
-            <ValveChart data={history} />
+            <ValveChart data={chartData} />
           </div>
         </div>
       )}
