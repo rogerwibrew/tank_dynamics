@@ -92,6 +92,10 @@ export default function InletFlowControl({
     setLocalMode(mode);
     setHasLocalChanges(true);
     setErrorMessage("");
+    // Reset Brownian parameters to defaults when mode changes
+    setLocalMin(0.8);
+    setLocalMax(1.2);
+    setLocalVariance(0.05);
   };
 
   // Handle flow rate input change
