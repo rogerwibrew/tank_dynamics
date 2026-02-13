@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { SimulationState } from "../lib/types";
 import { formatTime, formatValvePosition } from "../lib/utils";
+import { ChartTooltip } from "./ChartTooltip";
 
 /**
  * ValveChart component displays valve position (controller output) over time.
@@ -24,27 +25,6 @@ interface ValveChartProps {
 }
 
 const LEGEND_STYLE = { fontSize: 14, cursor: "pointer" };
-
-function CustomTooltip({ active, payload, label }: any) {
-  if (!active || !payload || !payload.length) return null;
-
-  return (
-    <div className="bg-gray-900 border border-gray-600 rounded p-3">
-      <p className="text-gray-400 text-sm mb-2">{formatTime(label)}</p>
-      {payload.map((entry: any, index: number) => (
-        <div key={index} className="flex items-center gap-2 text-sm">
-          <div
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: entry.color }}
-          />
-          <span className="text-white">
-            {entry.name}: {formatValvePosition(entry.value)}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default memo(function ValveChart({ data }: ValveChartProps) {
   const [hiddenLines, setHiddenLines] = useState<Record<string, boolean>>({
@@ -89,7 +69,11 @@ export default memo(function ValveChart({ data }: ValveChartProps) {
             style={{ fontSize: 12 }}
           />
 
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip
+            content={
+              <ChartTooltip formatter={(value) => formatValvePosition(value)} />
+            }
+          />
 
           <Legend wrapperStyle={LEGEND_STYLE} onClick={handleLegendClick} />
 
