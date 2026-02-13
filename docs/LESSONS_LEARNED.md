@@ -1467,6 +1467,62 @@ npm run dev -- --port 3000
 
 ---
 
+## 14. Recharts Performance: Real-Time Update Render Cascades
+
+### The Problem We Encountered
+
+The Trends View charts (LevelChart, FlowsChart, ValveChart) were extremely slow to update when new data arrived or when changing time ranges. The UI would visibly lag, making the operator experience unacceptable.
+
+### Root Cause Analysis
+
+Multiple compounding issues were causing excessive re-renders:
+
+1. **Render cascade from dependency loop (CRITICAL):** The `useEffect` that appended real-time WebSocket data to `chartData` listed `chartData.length` as a dependency. Since appending data changes the length, this caused the effect to re-evaluate on every update — triggering at least 2 renders per WebSocket message instead of 1. With 3 unmemoized chart components each doing full SVG recomputation, this doubled the rendering work.
+
+2. **No `React.memo` on chart components (CRITICAL):** All three chart components were plain function components. Every TrendsView re-render caused all three charts to fully re-render — recalculating Recharts layout and recomputing SVG paths for up to 7,200 data points per chart. At 1 Hz updates with the cascade doubling, this meant 6 full Recharts render cycles per second.
+
+3. **CustomTooltip defined inside render function (MEDIUM):** Each chart component defined its `CustomTooltip` as a new function inside the component body. This created a new function reference on every render, passed as a prop to Recharts `<Tooltip content={...}>`, defeating any internal memoization Recharts might do.
+
+4. **Unmemoized legend click handlers (MEDIUM):** `handleLegendClick` was recreated on every render, causing Recharts `<Legend>` to receive new `onClick` references and potentially re-render unnecessarily.
+
+5. **Inline style objects in JSX (LOW):** `wrapperStyle={{ fontSize: 14, cursor: "pointer" }}` created new object references on every render.
+
+### The Lesson
+
+Real-time charting with Recharts requires careful attention to React rendering behaviour. Recharts is SVG-based — every re-render recomputes the entire chart layout and redraws all SVG paths. With thousands of data points, this is expensive. The key principles:
+
+- **Never use derived state as a dependency for the effect that changes it.** Using `chartData.length` as a dependency for the effect that appends to `chartData` creates a feedback loop. Use a `useRef` to track values you need to read without subscribing to them.
+- **Always wrap expensive components in `React.memo`.** Recharts components are inherently expensive. Wrapping them prevents re-renders when props haven't actually changed.
+- **Hoist stable function components outside the render body.** Components like custom tooltips that don't depend on component state should be defined at module scope so they maintain referential identity.
+- **Use `useCallback` for event handlers passed as props.** Recharts components receive handlers as props — stable references prevent unnecessary re-renders.
+- **Hoist constant objects to module scope.** Style objects like `{ fontSize: 14, cursor: "pointer" }` should be defined once outside the component.
+
+### Resolution Applied
+
+1. **Replaced `chartData.length` dependency with `useRef`:** Added `latestTimeRef` to track the latest timestamp without subscribing to state changes. The `useEffect` for real-time updates now depends only on `[state]`.
+2. **Wrapped all chart components in `React.memo`:** `LevelChart`, `FlowsChart`, and `ValveChart` now skip re-renders when their `data` prop reference hasn't changed.
+3. **Hoisted `CustomTooltip` to module scope:** Moved outside the component function body in all three chart components.
+4. **Memoized `handleLegendClick` with `useCallback`:** Stable handler references in all chart components.
+5. **Hoisted `LEGEND_STYLE` constant to module scope:** Single object created once per module.
+6. **Avoided unnecessary `slice()`:** Only call `slice(-7200)` when the array actually exceeds the limit.
+7. **Added data downsampling:** The render-cascade fixes alone were insufficient for the 2-hour (7,200 point) case — Recharts simply cannot render that many SVG path segments across 3 charts. Added an evenly-spaced `downsample()` utility that caps chart data at 500 points while preserving first/last endpoints. The full dataset is retained in state for accurate appends; only the display path is downsampled via `useMemo`.
+
+### Specific Recommendations for Real-Time Charting
+
+- **SVG charting libraries have hard limits.** Recharts, Victory, and similar SVG-based libraries become unusable above ~500-1000 data points per chart. This is a fundamental limitation of SVG rendering in browsers. If you need more points, either downsample or switch to a Canvas-based library (e.g., uPlot, Chart.js).
+- **Downsample at the display layer, not the data layer.** Keep the full-resolution data in state so appends and time-range switches remain accurate. Only downsample in the `useMemo` that feeds the chart components.
+- **Profile before optimising:** Use React DevTools Profiler to identify which components are re-rendering and why. The "Highlight updates" feature makes render cascades immediately visible.
+- **Consider the update frequency vs render cost ratio.** At 1 Hz with 3 charts of 7,200 points each, you need sub-100ms render times to stay smooth. Recharts with 7,200 points typically takes 50-150ms per chart — there's no room for wasted renders.
+- **`useRef` for read-only values in effects.** If an effect needs to read current state but shouldn't re-run when that state changes, store it in a ref.
+- **Be cautious with `useMemo` when using React Compiler.** If the project uses the React Compiler (as this one does), manual `useMemo` calls can conflict with the compiler's automatic memoization. The compiler warned about mismatched dependencies. In such cases, either match the compiler's inferred dependencies exactly or remove the manual memo and let the compiler handle it.
+- **Test with production data volumes.** A chart with 60 data points (1 minute) will feel fine. The same chart with 7,200 data points (2 hours) will expose every rendering inefficiency.
+
+### Impact Assessment
+
+- **Before:** Charts noticeably lagging on every 1 Hz update; 2-hour time range would not render at all
+- **After:** Single render per WebSocket update, chart data capped at 500 display points regardless of time range, chart components skip re-render when data reference unchanged, stable prop references throughout
+- **Estimated improvement:** 2-hour case goes from non-functional to responsive. All time ranges now render ~500 SVG points instead of up to 7,200, combined with elimination of render cascades and unnecessary re-renders
+
 ## Next Steps
 
 1. **Immediate:** Apply micro-task breakdown to Phase 4 tasks
@@ -1477,5 +1533,5 @@ npm run dev -- --port 3000
 ---
 
 **Document maintained by:** Engineering team  
-**Last updated:** 2026-02-13 (updated Lesson 13: lsof vs ss, Turbopack cache, port cleanup)  
+**Last updated:** 2026-02-13 (added Lesson 14: Recharts real-time rendering performance)  
 **Review cycle:** After each major phase

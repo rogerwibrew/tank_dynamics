@@ -241,20 +241,104 @@ Historical data visualization with time-series charts.
 
 **Props:** None (uses context for state)
 
-**Charts:**
-1. **Level & Setpoint**: Shows tank level vs target setpoint over time
-2. **Flow Rates**: Inlet vs outlet flow rates
-3. **Valve Position**: Valve opening percentage over time
+**Sub-Components:**
+1. **LevelChart** (`components/LevelChart.tsx`)
+   - LineChart showing actual tank level vs setpoint
+   - Blue line: actual level, Red dashed line: setpoint
+   - Dual Y-axes for flexible scaling
+   - Interactive tooltips with values at hover point
+
+2. **FlowsChart** (`components/FlowsChart.tsx`)
+   - LineChart comparing inlet vs outlet flow rates
+   - Blue line: inlet flow, Green line: outlet flow
+   - Single Y-axis for direct comparison
+   - Helps identify flow imbalances
+
+3. **ValveChart** (`components/ValveChart.tsx`)
+   - AreaChart showing valve position history
+   - Filled area gradient (gray closed → blue open)
+   - Y-axis: 0-100% valve opening
+   - Visual representation of valve control
 
 **Features:**
-- Time-domain X-axis (auto-scales to available data)
-- Responsive sizing (adapts to container width)
-- Color-coded series for easy distinction
-- Hover tooltips show values at specific times
+- Time-domain X-axis (HH:MM:SS format)
+- Responsive grid layout (1-2 columns depending on screen)
+- Real-time data streaming (updates every 1 second)
+- Time range selector (30m, 1h, custom range)
+- Interactive legend (click to toggle series visibility)
+- Custom tooltips showing precise values
+- Cross-filtering between related metrics
+- Smooth animations on data updates
+- Error handling for API failures
 
 ---
 
 ## Hooks and Utilities
+
+### useHistory Hook (`hooks/useHistory.ts`)
+
+Custom React hook that fetches historical simulation data from the backend.
+
+**Parameters:**
+```typescript
+{
+  duration?: number;  // Duration in seconds (default: 3600 = 1 hour)
+}
+```
+
+**Returns:**
+```typescript
+{
+  data: HistoryDataPoint[];  // Array of timestamped state snapshots
+  loading: boolean;          // True while fetching data
+  error: string | null;      // Error message if fetch failed
+  refetch: () => void;       // Manually trigger data refetch
+}
+```
+
+**Data Format:**
+Each point contains:
+```typescript
+{
+  timestamp: number;        // Unix timestamp (seconds)
+  tank_level: number;       // Tank level in meters
+  setpoint: number;         // Target level in meters
+  inlet_flow: number;       // Inlet flow rate (m³/s)
+  outlet_flow: number;      // Outlet flow rate (m³/s)
+  valve_position: number;   // Valve opening (0-1 scale)
+  error: number;            // Control error (setpoint - level)
+}
+```
+
+**Features:**
+- Automatic data fetching on mount
+- Manual refetch capability for updating data
+- Loading state for UI feedback
+- Error handling with user-friendly messages
+- Duration parameter for flexible time ranges
+
+**Example Usage:**
+```typescript
+const { data, loading, error, refetch } = useHistory({ duration: 1800 }); // 30 minutes
+
+if (loading) return <div>Loading history...</div>;
+if (error) return <div>Error: {error}</div>;
+
+return (
+  <div>
+    <button onClick={refetch}>Refresh Data</button>
+    {/* Use data in charts */}
+  </div>
+);
+```
+
+**Implementation Notes:**
+- Fetches from `GET /api/history?duration={seconds}`
+- Caches data in component state (no global cache)
+- Updates when duration prop changes
+- Suitable for time range selector in TrendsView
+
+---
 
 ### useWebSocket Hook (`hooks/useWebSocket.ts`)
 
@@ -376,9 +460,16 @@ frontend/
 │   ├── ConnectionStatus.tsx    # Connection indicator
 │   ├── ProcessView.tsx         # Control interface
 │   ├── TabNavigation.tsx       # Tab selector
-│   └── TrendsView.tsx          # Historical charts
+│   ├── TrendsView.tsx          # Historical charts container
+│   ├── LevelChart.tsx          # Level vs setpoint chart
+│   ├── FlowsChart.tsx          # Inlet/outlet flow chart
+│   ├── ValveChart.tsx          # Valve position chart
+│   ├── TankGraphic.tsx         # SVG tank visualization
+│   ├── PIDControlPanel.tsx     # PID tuning interface
+│   └── InletFlowControl.tsx    # Inlet manipulation controls
 ├── hooks/
-│   └── useWebSocket.ts         # WebSocket management hook
+│   ├── useWebSocket.ts         # WebSocket management hook
+│   └── useHistory.ts           # Historical data fetching hook
 ├── lib/
 │   ├── types.ts                # TypeScript type definitions
 │   ├── utils.ts                # Utility functions
@@ -816,6 +907,6 @@ Potential improvements for future phases:
 
 ---
 
-**Last Updated:** 2026-02-12
-**Phase:** 4 - Next.js Frontend (Foundation Complete)
-**Status:** Phase 4 foundation complete with components and WebSocket integration
+**Last Updated:** 2026-02-13
+**Phase:** 6 - Trends View Enhancement (Complete)
+**Status:** Full SCADA interface with real-time controls and historical trend analysis

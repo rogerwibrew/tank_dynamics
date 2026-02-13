@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback, memo } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -23,38 +23,40 @@ interface ValveChartProps {
   data: SimulationState[];
 }
 
-export default function ValveChart({ data }: ValveChartProps) {
+const LEGEND_STYLE = { fontSize: 14, cursor: "pointer" };
+
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload || !payload.length) return null;
+
+  return (
+    <div className="bg-gray-900 border border-gray-600 rounded p-3">
+      <p className="text-gray-400 text-sm mb-2">{formatTime(label)}</p>
+      {payload.map((entry: any, index: number) => (
+        <div key={index} className="flex items-center gap-2 text-sm">
+          <div
+            className="w-3 h-3 rounded-full"
+            style={{ backgroundColor: entry.color }}
+          />
+          <span className="text-white">
+            {entry.name}: {formatValvePosition(entry.value)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default memo(function ValveChart({ data }: ValveChartProps) {
   const [hiddenLines, setHiddenLines] = useState<Record<string, boolean>>({
     valve_position: false,
   });
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload || !payload.length) return null;
-
-    return (
-      <div className="bg-gray-900 border border-gray-600 rounded p-3">
-        <p className="text-gray-400 text-sm mb-2">{formatTime(label)}</p>
-        {payload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center gap-2 text-sm">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="text-white">
-              {entry.name}: {formatValvePosition(entry.value)}
-            </span>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const handleLegendClick = (dataKey: string) => {
+  const handleLegendClick = useCallback((e: any) => {
     setHiddenLines((prev) => ({
       ...prev,
-      [dataKey]: !prev[dataKey],
+      [e.dataKey]: !prev[e.dataKey],
     }));
-  };
+  }, []);
 
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
@@ -89,10 +91,7 @@ export default function ValveChart({ data }: ValveChartProps) {
 
           <Tooltip content={<CustomTooltip />} />
 
-          <Legend
-            wrapperStyle={{ fontSize: 14, cursor: "pointer" }}
-            onClick={(e) => handleLegendClick(e.dataKey)}
-          />
+          <Legend wrapperStyle={LEGEND_STYLE} onClick={handleLegendClick} />
 
           <Line
             type="monotone"
@@ -107,4 +106,4 @@ export default function ValveChart({ data }: ValveChartProps) {
       </ResponsiveContainer>
     </div>
   );
-}
+});

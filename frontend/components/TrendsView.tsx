@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useHistory } from "../hooks/useHistory";
 import { useSimulation } from "../app/providers";
 import { SimulationState } from "../lib/types";
+import { downsample } from "../lib/utils";
 import LevelChart from "./LevelChart";
 import FlowsChart from "./FlowsChart";
 import ValveChart from "./ValveChart";
+
+const MAX_CHART_POINTS = 500;
 
 /**
  * TrendsView component displays historical simulation state updates
@@ -28,6 +31,7 @@ export function TrendsView() {
   const { history, loading, error } = useHistory(duration);
   const { state } = useSimulation();
   const [chartData, setChartData] = useState<SimulationState[]>([]);
+  const latestTimeRef = useRef<number>(-Infinity);
 
   const TIME_RANGES = [
     { label: "1 min", value: 60 },
@@ -41,24 +45,32 @@ export function TrendsView() {
   useEffect(() => {
     if (!loading && history.length > 0) {
       setChartData(history);
+      latestTimeRef.current = history[history.length - 1].time;
     }
   }, [history, loading]);
 
   // Append real-time WebSocket updates to chartData
   useEffect(() => {
-    if (state && chartData.length > 0) {
-      const latestTime = chartData[chartData.length - 1].time;
-
-      // Only append if this is genuinely new data (newer timestamp)
-      if (state.time > latestTime) {
-        setChartData((prev) => {
-          const updated = [...prev, state];
-          // Limit to last 7200 entries (2 hours at 1Hz)
+    if (state && state.time > latestTimeRef.current) {
+      latestTimeRef.current = state.time;
+      setChartData((prev) => {
+        if (prev.length === 0) return prev;
+        const updated = [...prev, state];
+        // Limit to last 7200 entries (2 hours at 1Hz)
+        if (updated.length > 7200) {
           return updated.slice(-7200);
-        });
-      }
+        }
+        return updated;
+      });
     }
-  }, [state, chartData.length]);
+  }, [state]);
+
+  // Downsample for rendering — Recharts is SVG-based and bogs down
+  // beyond ~500 points. The full chartData is kept for accurate appends.
+  const displayData = useMemo(
+    () => downsample(chartData, MAX_CHART_POINTS),
+    [chartData],
+  );
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -109,7 +121,7 @@ export function TrendsView() {
       )}
 
       {/* Empty state */}
-      {!loading && !error && chartData.length === 0 && (
+      {!loading && !error && displayData.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-400 text-center">
             No historical data available
@@ -118,14 +130,14 @@ export function TrendsView() {
       )}
 
       {/* Charts */}
-      {!loading && !error && chartData.length > 0 && (
+      {!loading && !error && displayData.length > 0 && (
         <div className="flex-1 overflow-auto space-y-4">
           {/* Level Chart */}
           <div className="bg-gray-800 rounded-lg p-4">
             <h3 className="text-lg font-semibold text-white mb-3">
               Tank Level vs Setpoint
             </h3>
-            <LevelChart data={chartData} />
+            <LevelChart data={displayData} />
           </div>
 
           {/* Flows Chart */}
@@ -133,7 +145,7 @@ export function TrendsView() {
             <h3 className="text-lg font-semibold text-white mb-3">
               Inlet and Outlet Flows
             </h3>
-            <FlowsChart data={chartData} />
+            <FlowsChart data={displayData} />
           </div>
 
           {/* Valve Chart */}
@@ -141,7 +153,7 @@ export function TrendsView() {
             <h3 className="text-lg font-semibold text-white mb-3">
               Controller Output (Valve Position)
             </h3>
-            <ValveChart data={chartData} />
+            <ValveChart data={displayData} />
           </div>
         </div>
       )}

@@ -246,13 +246,15 @@ This project uses a structured AI-assisted workflow:
 
 See `CLAUDE.md` for detailed role definitions and boundaries.
 
-### Current Phase: Phase 4 - Next.js Frontend [✅ FOUNDATION COMPLETE]
+### Current Phase: Phase 6 - Trends View Enhancement & Polish [✅ COMPLETE]
 
-**Progress:** Foundation complete (2026-02-12) - Base components and WebSocket integration functional
+**Progress:** Trends View complete (2026-02-13) - Historical data visualization with real-time updates
 - ✅ Phase 1: C++ Simulation Core (9 tasks, 42 C++ tests passing)
 - ✅ Phase 2: Python Bindings (3 tasks, 28 Python tests passing)
 - ✅ Phase 3: FastAPI Backend (4 tasks, complete with all 70+ tests passing)
 - ✅ Phase 4: Next.js Frontend Foundation (21 tasks complete, base interface ready)
+- ✅ Phase 5: Process View (12 tasks complete, SVG graphics + controls + flow indicators)
+- ✅ Phase 6: Trends View Enhancement (14 tasks complete, charts + interactions + polish)
 
 **Phase 3 Deliverables:**
 - ✅ Task 13: FastAPI project structure with Pydantic models and core endpoints
@@ -268,6 +270,24 @@ See `CLAUDE.md` for detailed role definitions and boundaries.
 - ✅ Task 21a-21e: TabNavigation, ConnectionStatus, ProcessView, TrendsView, Home Page integration
 - ✅ Task 21f: Complete frontend application testing (all components functional)
 
+**Phase 5 Deliverables (Process View):**
+- ✅ Task 22-27: Tank visualization (SVG graphics with realistic valve/inlet design)
+- ✅ Task 25: Real-time inlet flow control with PID parameter tuning
+- ✅ Task 26-27: Flow direction indicators, Brownian inlet mode toggle, smooth animations
+- ✅ Complete SCADA interface with responsive layout and error handling
+
+**Phase 6 Deliverables (Trends View Enhancement):**
+- ✅ Task 28a-28f: Polish tasks (animation control, constants extraction, help text, error colors, PID config fetch)
+- ✅ Task 29a-29h: Historical data visualization
+  - Task 29a: useHistory hook for ring buffer data retrieval
+  - Task 29b: LevelChart component (tank level vs setpoint)
+  - Task 29c: FlowsChart component (inlet and outlet flow rates)
+  - Task 29d: ValveChart component (valve position over time)
+  - Task 29e: Integration into TrendsView with responsive layout
+  - Task 29f: Real-time data append for live chart updates
+  - Task 29g: Time range selector (1 hour, 30 mins, custom range)
+  - Task 29h: Interactive chart features (custom tooltips, legend interactions)
+
 **Fully Operational System:**
 - Python bindings fully functional and tested (28 tests)
 - C++ simulation core production-ready (42 tests)
@@ -280,6 +300,10 @@ See `CLAUDE.md` for detailed role definitions and boundaries.
 - CORS enabled for frontend integration
 - Comprehensive logging for debugging
 - Interactive example clients (Python WebSocket, Python REST, HTML WebSocket)
+- SCADA interface with tank visualization and real-time controls
+- Historical trend charts with Recharts (Level, Flows, Valve Position)
+- Time range selection and chart interactions
+- Production-ready frontend with error handling and responsive design
 
 ### Running Tests
 
@@ -443,16 +467,24 @@ Follow the workflow defined in `CLAUDE.md` when contributing:
 
 ---
 
-**Last Updated:** 2026-02-12 (Phase 4 Foundation Complete)
-**Current Status:** Phase 4 Foundation Complete - 4 phases with full frontend integration operational
-**Next Phase:** Phase 4 Continued - Advanced Frontend Features
+**Last Updated:** 2026-02-13 (Phase 6 Trends View Complete)
+**Current Status:** Phase 6 Complete - 6 phases with full SCADA interface and historical charts
+**Next Phase:** Phase 7 - Integration and Polish
 
-**Phase 3 Completion Summary:**
-- ✅ FastAPI server with WebSocket real-time updates (1 Hz)
-- ✅ 9 REST endpoints for simulation control and monitoring
-- ✅ Ring buffer history (7200 entries, ~2 hours)
-- ✅ Brownian inlet flow mode for disturbance testing
-- ✅ 70+ comprehensive API tests
-- ✅ Complete API documentation with examples
-- ✅ Production deployment guide (systemd, nginx, TLS)
-- ✅ Interactive example clients (Python & HTML/JS)
+**Phase 6 Completion Summary:**
+- ✅ Historical data visualization with Recharts
+- ✅ Three chart types: Level, Flows, Valve Position
+- ✅ Real-time data streaming to charts
+- ✅ Time range selector (1 hour, 30 mins, custom)
+- ✅ Interactive tooltips and legend controls
+- ✅ Code review feedback addressed (6 polish tasks)
+- ✅ All animation and styling improvements
+- ✅ Complete TrendsView component integration
+
+**System Completion Status:**
+- ✅ Phase 1: C++ Core (42 tests, 100% pass)
+- ✅ Phase 2: Python Bindings (28 tests, 100% pass)
+- ✅ Phase 3: FastAPI Backend (70+ tests, production-ready)
+- ✅ Phase 4: Frontend Foundation (21 tasks, base interface)
+- ✅ Phase 5: Process View (12 tasks, SCADA interface)
+- ✅ Phase 6: Trends View (14 tasks, historical visualization)
